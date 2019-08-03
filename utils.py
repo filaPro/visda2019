@@ -30,8 +30,7 @@ def download_raw_data(path, domains):
             print(f'downloading: {url}')
             os.system(f'wget -P {path} {url}')
         print(f'extracting: {domain}')
-        zip_path = os.path.join(path, f'{domain}.zip')
-        os.system(f'cd {path} && unzip -qo {zip_path}')
+        os.system(f'cd {path} && unzip -qo {domain}.zip')
 
 
 def read_paths_and_labels(path, domain):
