@@ -29,6 +29,10 @@ def download_raw_data(path, domains):
         for url in urls:
             print(f'downloading: {url}')
             os.system(f'wget -P {path} {url}')
+
+
+def unzip_raw_data(path, domains):
+    for domain in domains:
         print(f'extracting: {domain}')
         os.system(f'cd {path} && unzip -qo {domain}.zip')
 
