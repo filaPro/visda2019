@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from .import ClassificationLoss
+
 
 def build_generator(image_size):
     return tf.keras.Sequential([
@@ -9,7 +11,7 @@ def build_generator(image_size):
             weights='imagenet'
         ),
         tf.keras.layers.GlobalAveragePooling2D(),
-        tf.keras.layers.Dense(4096, activation='relu'),
+        tf.keras.layers.Dense(4096, activation='relu')
     ])
 
 
@@ -55,18 +57,6 @@ class MomentLoss:
         return tf.reduce_mean(tf.pow(tensor, moment), axis=0)
 
 
-class ClassificationLoss:
-    def __init__(self):
-        self.scorer = tf.keras.losses.SparseCategoricalCrossentropy()
-
-    def __call__(self, labels, predictions):
-        loss = .0
-        for label, prediction in zip(labels, predictions):
-            loss += self.scorer(label, prediction)
-        loss /= len(labels)
-        return loss
-
-
 class DiscrepancyLoss:
     def __init__(self):
         self.scorer = tf.keras.losses.MeanAbsoluteError()
@@ -95,10 +85,10 @@ class M3sdaTrainStep:
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
-            sources_features = tuple(self.models['generator'](batch[i][0]) for i in range(self.n_sources))
+            source_features = tuple(self.models['generator'](batch[i][0]) for i in range(self.n_sources))
             target_features = self.models['generator'](batch[-1][0])
             source_predictions = tuple(
-                self.models[f'classifier_{i}'](sources_features[i]) for i in range(self.n_sources)
+                self.models[f'classifier_{i}'](source_features[i]) for i in range(self.n_sources)
             )
             target_predictions = tuple(
                 self.models[f'classifier_{i}'](target_features) for i in range(self.n_sources)
@@ -106,7 +96,7 @@ class M3sdaTrainStep:
             classification_loss = self.losses['classification'](
                 tuple(zip(*batch[:self.n_sources]))[1], source_predictions
             )
-            moment_loss = self.losses['moment'](sources_features, target_features)
+            moment_loss = self.losses['moment'](source_features, target_features)
             loss = classification_loss + moment_loss * self.loss_weight
 
         trainable_variables = self.models['generator'].trainable_variables
@@ -159,17 +149,17 @@ class M3sdaTestStep:
     def __init__(self, n_classes, domains, image_size):
         self.n_sources = len(domains) - 1
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(n_classes, image_size)
+        self.models = self._init_models(image_size, n_classes)
         self.metrics = self._init_metrics()
 
     @tf.function
     def __call__(self, batch):
         self.iteration.assign_add(1)
-        features = self.models['generator'](batch)
+        features = self.models['generator'](batch[0])
         predictions = tuple(
             self.models[f'classifier_{i}'](features) for i in range(self.n_sources)
         )
-        self.metrics[f'accuracy'].update_state(batch[-1][1], tf.add_n(predictions))
+        self.metrics[f'accuracy'].update_state(batch[1], tf.add_n(predictions))
 
     def _init_models(self, image_size, n_classes):
         models = {
@@ -182,5 +172,5 @@ class M3sdaTestStep:
     @staticmethod
     def _init_metrics():
         return {
-            'accuracy': tf.keras.metrics.SparseCategoricalAccuracy(),
+            'accuracy': tf.keras.metrics.SparseCategoricalAccuracy()
         }

@@ -7,6 +7,9 @@ class Trainer:
         self, train_step, n_iterations, n_log_iterations, n_save_iterations, log_path,
         restore_model_flag, restore_optimizer_flag
     ):
+        """
+        :param train_step: requires `.iteration`, `.metrics`, `.losses`, `.optimizers`, `.__call__(batch)`
+        """
         self.train_step = train_step
         self.n_iterations = n_iterations
         self.n_log_iterations = n_log_iterations
@@ -23,10 +26,9 @@ class Trainer:
             restore_checkpoint = tf.train.Checkpoint(**restore_objects)
             restore_checkpoint.restore(tf.train.latest_checkpoint(checkpoint_path))
 
-    def train(self, dataset):
+    def __call__(self, dataset):
         """
-        :param dataset: dataset.__call__ returns batch
-        :param train_step: requires train_step.iteration, train_step.metrics, train_step.__call__(batch)
+        :param dataset: `.__call__` returns batch
         """
         for batch in dataset:
             iteration = self.train_step.iteration.numpy()
