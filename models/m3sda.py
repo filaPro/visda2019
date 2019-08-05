@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from . import ClassificationLoss
+from .common import ClassificationLoss
 
 
 def build_generator(image_size):
