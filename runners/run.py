@@ -1,16 +1,53 @@
 from trainer import Trainer
-from models import M3sdaModel
+from models import M3sdaTrainStep
 
-from utils import DOMAINS, N_CLASSES, download_raw_data, read_source_target_paths_and_labels, make_dataset
+from utils import DOMAINS, N_CLASSES, read_source_target_paths_and_labels, make_dataset
 
-raw_data_path = 'raw_data'
+raw_data_path = '/content/data/raw'
+log_path = '/content/data/logs'
 batch_size = 32
 image_size = 96
 
-download_raw_data(raw_data_path, DOMAINS)
 sources_paths, sources_labels, target_paths, target_labels = \
     read_source_target_paths_and_labels(raw_data_path, DOMAINS, 3)
 dataset = make_dataset(sources_paths, target_paths, sources_labels, target_labels, batch_size, image_size)
-model = M3sdaModel(beta=False, n_classes=N_CLASSES, domains=DOMAINS, image_size=image_size, n_moments=5)
-trainer = Trainer(500, 100)
-trainer.train(model, dataset)
+
+train_step = M3sdaTrainStep(
+    n_classes=N_CLASSES,
+    domains=DOMAINS,
+    image_size=image_size,
+    n_moments=5,
+    n_frozen_layers=143,
+    learning_rate=0.001,
+    loss_weight=0.001
+)
+trainer = Trainer(
+    train_step=train_step,
+    n_iterations=500,
+    n_log_iterations=100,
+    n_save_iterations=100,
+    log_path=log_path,
+    restore_model_flag=False,
+    restore_optimizer_flag=False
+)
+trainer.train(dataset)
+
+train_step = M3sdaTrainStep(
+    n_classes=N_CLASSES,
+    domains=DOMAINS,
+    image_size=image_size,
+    n_moments=5,
+    n_frozen_layers=0,
+    learning_rate=0.0001,
+    loss_weight=0.03
+)
+trainer = Trainer(
+    train_step=train_step,
+    n_iterations=1000,
+    n_log_iterations=100,
+    n_save_iterations=0,
+    log_path=log_path,
+    restore_model_flag=True,
+    restore_optimizer_flag=False
+)
+trainer.train(dataset)
