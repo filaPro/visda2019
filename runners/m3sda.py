@@ -45,7 +45,7 @@ train_step = M3sdaTrainStep(
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=20000,
+    n_iterations=12000,
     n_log_iterations=100,
     n_save_iterations=0,
     log_path=log_path,
