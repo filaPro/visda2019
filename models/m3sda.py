@@ -3,9 +3,13 @@ import tensorflow as tf
 from .common import ClassificationLoss
 
 
-def build_generator(image_size):
+def build_generator(image_size, name):
+    if name == 'vgg19':
+        backbone = tf.keras.applications.VGG19
+    else:
+        backbone = tf.keras.applications.MobileNetV2
     return tf.keras.Sequential([
-        tf.keras.applications.MobileNetV2(
+        backbone(
             input_shape=(image_size, image_size, 3),
             include_top=False,
             weights='imagenet'
@@ -70,12 +74,12 @@ class DiscrepancyLoss:
 
 
 class M3sdaTrainStep:
-    def __init__(self, n_classes, domains, image_size, n_moments, n_frozen_layers, learning_rate, loss_weight):
+    def __init__(self, n_classes, domains, image_size, n_moments, n_frozen_layers, learning_rate, loss_weight, name):
         self.n_sources = len(domains) - 1
         self.domains = domains
         self.loss_weight = loss_weight
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(image_size, n_frozen_layers, n_classes)
+        self.models = self._init_models(image_size, n_frozen_layers, n_classes, name)
         self.losses = self._init_losses(n_moments)
         self.metrics = self._init_metrics()
         self.optimizers = self._init_optimizers(learning_rate)
@@ -110,9 +114,9 @@ class M3sdaTrainStep:
         for i in range(self.n_sources):
             self.metrics[f'{self.domains[i]}_accuracy'].update_state(batch[i][1], source_predictions[i])
 
-    def _init_models(self, image_size, n_frozen_layers, n_classes):
+    def _init_models(self, image_size, n_frozen_layers, n_classes, name):
         models = {
-            'generator': build_generator(image_size)
+            'generator': build_generator(image_size, name)
         }
         backbone = models['generator'].layers[0]
         for layer in backbone.layers[:n_frozen_layers]:
@@ -146,10 +150,10 @@ class M3sdaTrainStep:
 
 
 class M3sdaTestStep:
-    def __init__(self, n_classes, domains, image_size):
+    def __init__(self, n_classes, domains, image_size, name):
         self.n_sources = len(domains) - 1
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(image_size, n_classes)
+        self.models = self._init_models(image_size, n_classes, name)
         self.metrics = self._init_metrics()
 
     @tf.function
@@ -161,9 +165,9 @@ class M3sdaTestStep:
         )
         self.metrics[f'accuracy'].update_state(batch[1], tf.add_n(predictions))
 
-    def _init_models(self, image_size, n_classes):
+    def _init_models(self, image_size, n_classes, name):
         models = {
-            'generator': build_generator(image_size)
+            'generator': build_generator(image_size, name)
         }
         for i in range(self.n_sources):
             models[f'classifier_{i}'] = build_classifer(n_classes)

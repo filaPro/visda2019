@@ -16,16 +16,17 @@ train_step = M3sdaTrainStep(
     n_classes=N_CLASSES,
     domains=DOMAINS,
     image_size=image_size,
-    n_moments=5,
-    n_frozen_layers=143,
+    n_moments=2,
+    n_frozen_layers=100,
     learning_rate=0.001,
-    loss_weight=0.001
+    loss_weight=0.001,
+    name='vgg19'
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=500,
+    n_iterations=1000,
     n_log_iterations=100,
-    n_save_iterations=500,
+    n_save_iterations=1000,
     log_path=log_path,
     restore_model_flag=False,
     restore_optimizer_flag=False
@@ -36,16 +37,17 @@ train_step = M3sdaTrainStep(
     n_classes=N_CLASSES,
     domains=DOMAINS,
     image_size=image_size,
-    n_moments=5,
+    n_moments=2,
     n_frozen_layers=0,
     learning_rate=0.0001,
-    loss_weight=0.03
+    loss_weight=0.005,
+    name='vgg19'
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=1000,
+    n_iterations=20000,
     n_log_iterations=100,
-    n_save_iterations=1000,
+    n_save_iterations=0,
     log_path=log_path,
     restore_model_flag=True,
     restore_optimizer_flag=False
@@ -53,7 +55,7 @@ trainer = Trainer(
 trainer(dataset)
 
 test_dataset = make_domain_dataset(target_paths, target_labels, batch_size, image_size)
-test_step = M3sdaTestStep(n_classes=N_CLASSES, domains=DOMAINS, image_size=image_size)
+test_step = M3sdaTestStep(n_classes=N_CLASSES, domains=DOMAINS, image_size=image_size, name='vgg19')
 tester = Tester(test_step=test_step, log_path=log_path)
 tester(test_dataset)
 # >>> accuracy: 8.52442e-02
