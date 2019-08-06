@@ -47,7 +47,7 @@ trainer = Trainer(
     train_step=train_step,
     n_iterations=12000,
     n_log_iterations=100,
-    n_save_iterations=0,
+    n_save_iterations=1000,
     log_path=log_path,
     restore_model_flag=True,
     restore_optimizer_flag=False
@@ -58,4 +58,4 @@ test_dataset = make_domain_dataset(target_paths, target_labels, batch_size, imag
 test_step = M3sdaTestStep(n_classes=N_CLASSES, domains=DOMAINS, image_size=image_size, name='vgg19')
 tester = Tester(test_step=test_step, log_path=log_path)
 tester(test_dataset)
-# >>> accuracy: 8.52442e-02
+# >>> accuracy: 2.10141e-01
