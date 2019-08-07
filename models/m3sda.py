@@ -3,28 +3,6 @@ import tensorflow as tf
 from .common import ClassificationLoss
 
 
-def build_generator(image_size, name):
-    if name == 'vgg19':
-        backbone = tf.keras.applications.VGG19
-    else:
-        backbone = tf.keras.applications.MobileNetV2
-    return tf.keras.Sequential([
-        backbone(
-            input_shape=(image_size, image_size, 3),
-            include_top=False,
-            weights='imagenet'
-        ),
-        tf.keras.layers.GlobalAveragePooling2D(),
-        tf.keras.layers.Dense(4096, activation='relu')
-    ])
-
-
-def build_classifer(n_classes):
-    return tf.keras.Sequential([
-        tf.keras.layers.Dense(n_classes, input_shape=(4096,), activation='softmax')
-    ])
-
-
 class MomentLoss:
     def __init__(self, n_moments):
         self.n_moments = n_moments
@@ -74,18 +52,21 @@ class DiscrepancyLoss:
 
 
 class M3sdaTrainStep:
-    def __init__(self, n_classes, domains, image_size, n_moments, n_frozen_layers, learning_rate, loss_weight, name):
+    def __init__(
+        self, build_generator_lambda, build_classifier_lambda, domains, n_moments, n_frozen_layers,
+        learning_rate, loss_weight
+    ):
         self.n_sources = len(domains) - 1
         self.domains = domains
         self.loss_weight = loss_weight
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(image_size, n_frozen_layers, n_classes, name)
+        self.models = self._init_models(build_generator_lambda, build_classifier_lambda, n_frozen_layers)
         self.losses = self._init_losses(n_moments)
         self.metrics = self._init_metrics()
         self.optimizers = self._init_optimizers(learning_rate)
 
     @tf.function
-    def __call__(self, batch):
+    def train(self, batch):
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
@@ -109,20 +90,29 @@ class M3sdaTrainStep:
         self.optimizers['optimizer'].apply_gradients(zip(tape.gradient(loss, trainable_variables), trainable_variables))
 
         self.metrics['moment'].update_state(moment_loss)
-        self.metrics['classification'].update_state(classification_loss)
-        self.metrics[f'target_accuracy'].update_state(batch[-1][1], tf.add_n(target_predictions))
+        self.metrics['scce'].update_state(classification_loss)
+        self.metrics[f'target_acc'].update_state(batch[-1][1], tf.add_n(target_predictions))
         for i in range(self.n_sources):
-            self.metrics[f'{self.domains[i]}_accuracy'].update_state(batch[i][1], source_predictions[i])
+            self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i][1], source_predictions[i])
 
-    def _init_models(self, image_size, n_frozen_layers, n_classes, name):
+    @tf.function
+    def validate(self, batch):
+        features = tuple(self.models['generator'](batch[i][0]) for i in range(self.n_sources))
+        predictions = tuple(
+            self.models[f'classifier_{i}'](features[i]) for i in range(self.n_sources)
+        )
+        for i in range(self.n_sources):
+            self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i][1], predictions[i])
+
+    def _init_models(self, build_generator_lambda, build_classifier_lambda, n_frozen_layers):
         models = {
-            'generator': build_generator(image_size, name)
+            'generator': build_generator_lambda()
         }
         backbone = models['generator'].layers[0]
         for layer in backbone.layers[:n_frozen_layers]:
             layer.trainable = False
         for i in range(self.n_sources):
-            models[f'classifier_{i}'] = build_classifer(n_classes)
+            models[f'classifier_{i}'] = build_classifier_lambda()
         return models
 
     @staticmethod
@@ -135,11 +125,12 @@ class M3sdaTrainStep:
     def _init_metrics(self):
         metrics = {
             'moment': tf.keras.metrics.Mean(),
-            'classification': tf.keras.metrics.Mean(),
-            'target_accuracy': tf.keras.metrics.SparseCategoricalAccuracy(),
+            'scce': tf.keras.metrics.Mean(),
+            'target_acc': tf.keras.metrics.SparseCategoricalAccuracy(),
         }
         for i in range(self.n_sources):
-            metrics[f'{self.domains[i]}_accuracy'] = tf.keras.metrics.SparseCategoricalAccuracy()
+            metrics[f'{self.domains[i]}_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
+            metrics[f'{self.domains[i]}_val_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
         return metrics
 
     @staticmethod
@@ -150,31 +141,31 @@ class M3sdaTrainStep:
 
 
 class M3sdaTestStep:
-    def __init__(self, n_classes, domains, image_size, name):
+    def __init__(self, build_generator_lambda, build_classifier_lambda, domains):
         self.n_sources = len(domains) - 1
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(image_size, n_classes, name)
+        self.models = self._init_models(build_generator_lambda, build_classifier_lambda)
         self.metrics = self._init_metrics()
 
     @tf.function
-    def __call__(self, batch):
+    def test(self, batch):
         self.iteration.assign_add(1)
         features = self.models['generator'](batch[0])
         predictions = tuple(
             self.models[f'classifier_{i}'](features) for i in range(self.n_sources)
         )
-        self.metrics[f'accuracy'].update_state(batch[1], tf.add_n(predictions))
+        self.metrics[f'acc'].update_state(batch[1], tf.add_n(predictions))
 
-    def _init_models(self, image_size, n_classes, name):
+    def _init_models(self, build_generator_lambda, build_classifier_lambda):
         models = {
-            'generator': build_generator(image_size, name)
+            'generator': build_generator_lambda()
         }
         for i in range(self.n_sources):
-            models[f'classifier_{i}'] = build_classifer(n_classes)
+            models[f'classifier_{i}'] = build_classifier_lambda()
         return models
 
     @staticmethod
     def _init_metrics():
         return {
-            'accuracy': tf.keras.metrics.SparseCategoricalAccuracy()
+            'acc': tf.keras.metrics.SparseCategoricalAccuracy()
         }

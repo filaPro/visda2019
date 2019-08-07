@@ -1,1 +1,4 @@
 tensorflow-gpu==2.0.0-beta1
+efficientnet==1.0.0b2
+tensorflow-addons
+scikit-image

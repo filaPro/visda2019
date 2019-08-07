@@ -4,16 +4,18 @@ import tensorflow as tf
 
 class Trainer:
     def __init__(
-        self, train_step, n_iterations, n_log_iterations, n_save_iterations, log_path,
-        restore_model_flag, restore_optimizer_flag
+        self, train_step, n_iterations, n_log_iterations, n_save_iterations, n_validate_iterations,
+            log_path, restore_model_flag, restore_optimizer_flag
     ):
         """
-        :param train_step: requires `.iteration`, `.metrics`, `.losses`, `.optimizers`, `.__call__(batch)`
+        :param train_step: requires `.iteration`, `.metrics`, `.losses`, `.optimizers`, `.train(batch)`,
+            `.validate(batch)`
         """
         self.train_step = train_step
         self.n_iterations = n_iterations
         self.n_log_iterations = n_log_iterations
         self.n_save_iterations = n_save_iterations
+        self.n_validate_iterations = n_validate_iterations
         self.checkpoint = tf.train.Checkpoint(**train_step.models, **train_step.optimizers)
         checkpoint_path = os.path.join(log_path, 'checkpoint')
         self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, checkpoint_path, max_to_keep=5)
@@ -26,13 +28,16 @@ class Trainer:
             restore_checkpoint = tf.train.Checkpoint(**restore_objects)
             restore_checkpoint.restore(tf.train.latest_checkpoint(checkpoint_path))
 
-    def __call__(self, dataset):
+    def __call__(self, train_dataset, validate_dataset):
         """
-        :param dataset: `.__call__` returns batch
+        :param train_dataset: `next()` returns batch
+        :param validate_dataset: `next()` returns batch; None if not self.n_validate_iterations
         """
-        for batch in dataset:
+        for _ in range(self.n_iterations):
             iteration = self.train_step.iteration.numpy()
-            self.train_step(batch)
+            self.train_step.train(next(train_dataset))
+            if self.n_validate_iterations and iteration % self.n_validate_iterations == self.n_validate_iterations - 1:
+                self.train_step.validate(next(validate_dataset))
             string = f'\riteration: {iteration + 1}'
             for name, metric in self.train_step.metrics.items():
                 string += f', {name}: {metric.result().numpy():.5e}'
@@ -44,5 +49,3 @@ class Trainer:
             if self.n_save_iterations and iteration % self.n_save_iterations == self.n_save_iterations - 1:
                 checkpoint_path = self.checkpoint_manager.save()
                 print(f'iteration: {iteration + 1}, save: {checkpoint_path}')
-            if iteration == self.n_iterations - 1:
-                break

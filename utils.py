@@ -3,6 +3,8 @@ import random
 import numpy as np
 import tensorflow as tf
 
+from preprocessor import Preprocessor
+
 
 DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch')
 N_CLASSES = 345
@@ -37,12 +39,13 @@ def unzip_raw_data(path, domains):
         os.system(f'cd {path} && unzip -qo {domain}.zip')
 
 
-def read_paths_and_labels(path, domain):
-    print('>', domain)
-    paths_and_labels = []
-    for suffix in ('train', 'test'):
-        with open(os.path.join(path, f'{domain}_{suffix}.txt')) as file:
-            paths_and_labels += list(map(lambda s: s.split(), file.readlines()))
+def read_domain_paths_and_labels(path, domain, phase):
+    """
+    :param phase: 'train' or 'test'
+    """
+    print('>', domain, phase)
+    with open(os.path.join(path, f'{domain}_{phase}.txt')) as file:
+        paths_and_labels = list(map(lambda s: s.split(), file.readlines()))
     random.shuffle(paths_and_labels)
     paths, labels = zip(*paths_and_labels)
     paths = list(map(lambda s: os.path.join(path, s), paths))
@@ -50,50 +53,74 @@ def read_paths_and_labels(path, domain):
     return paths, labels
 
 
-# TODO: enable train / test split
-def read_source_target_paths_and_labels(path, domains, target_domain_id):
+def read_paths_and_labels(path, domains, target_domain_id):
     print('source:')
-    sources_paths = []
-    sources_labels = []
+    paths_and_labels = {
+        'source': {
+            'train': {
+                'labels': [],
+                'paths': []
+            },
+            'test': {
+                'labels': [],
+                'paths': []
+            }
+        },
+        'target': {
+            'train': {
+                'labels': [],
+                'paths': []
+            },
+            'test': {
+                'labels': [],
+                'paths': []
+            }
+        }
+    }
     source_domain_ids = np.setdiff1d(np.arange(len(domains)), (target_domain_id,))
     for domain_id in source_domain_ids:
-        paths, labels = read_paths_and_labels(path, domains[domain_id])
-        sources_paths.append(paths)
-        sources_labels.append(labels)
+        for phase in ('train', 'test'):
+            paths, labels = read_domain_paths_and_labels(path, domains[domain_id], phase)
+            paths_and_labels['source'][phase]['paths'].append(paths)
+            paths_and_labels['source'][phase]['labels'].append(labels)
     print('target:')
-    target_paths, target_labels = read_paths_and_labels(path, domains[target_domain_id])
-    return sources_paths, sources_labels, target_paths, target_labels
+    for phase in ('train', 'test'):
+        paths, labels = read_domain_paths_and_labels(path, domains[target_domain_id], phase)
+        paths_and_labels['target'][phase]['paths'] = paths
+        paths_and_labels['target'][phase]['labels'] = labels
+    return paths_and_labels
 
 
 @tf.function
 def decode_image(path):
     raw = tf.io.read_file(path)
     if tf.image.is_jpeg(raw):
-        return tf.image.decode_jpeg(raw, channels=3)
-    return tf.image.decode_png(raw, channels=3)
+        image = tf.image.decode_jpeg(raw, channels=3)
+    else:
+        image = tf.image.decode_png(raw, channels=3)
+    return tf.cast(image, tf.float32)
 
 
-def make_domain_dataset(paths, labels, batch_size, image_size):
+def make_domain_dataset(paths, labels, preprocessor, batch_size):
     return tf.data.Dataset.zip((
         tf.data.Dataset.from_tensor_slices(paths),
         tf.data.Dataset.from_tensor_slices(labels)
     )).shuffle(
         23456
     ).map(
-        lambda path, label: (decode_image(path), label)
-    ).map(
-        lambda image, label: (tf.keras.applications.mobilenet.preprocess_input(
-            tf.image.resize(image, (image_size, image_size))), label
-        )
+        lambda path, label: (preprocessor(decode_image(path)), label)
     ).batch(batch_size)
 
 
-def make_dataset(sources_paths, target_paths, sources_labels, target_labels, batch_size, image_size):
-    return tf.data.Dataset.zip(tuple(
-        make_domain_dataset(paths, labels, batch_size, image_size)
-        for paths, labels in zip(
-            sources_paths + [target_paths], sources_labels + [target_labels]
-        )
-    )).repeat()
-
-
+def make_dataset(
+    source_paths, source_labels, source_config,
+    target_paths, target_labels, target_config,
+    batch_size
+):
+    source_preprocessor = Preprocessor(source_config)
+    target_preprocessor = Preprocessor(target_config)
+    datasets = []
+    for paths, labels in zip(source_paths, source_labels):
+        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size))
+    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size))
+    return tf.data.Dataset.zip(tuple(datasets)).repeat()

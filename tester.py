@@ -5,7 +5,7 @@ import tensorflow as tf
 class Tester:
     def __init__(self, test_step, log_path):
         """
-        :param test_step: requires `.iteration`, `.metrics`, `.__call__(batch)`
+        :param test_step: requires `.iteration`, `.metrics`, `.test(batch)`
         """
         self.test_step = test_step
         checkpoint = tf.train.Checkpoint(**test_step.models)
@@ -18,7 +18,7 @@ class Tester:
         """
         for batch in dataset:
             iteration = self.test_step.iteration.numpy()
-            self.test_step(batch)
+            self.test_step.test(batch)
             string = f'\riteration: {iteration + 1}'
             for name, metric in self.test_step.metrics.items():
                 string += f', {name}: {metric.result().numpy():.5e}'
