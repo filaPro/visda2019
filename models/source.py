@@ -79,7 +79,7 @@ class SourceTestStep:
         self.metrics = self._init_metrics()
 
     @tf.function
-    def __call__(self, batch):
+    def test(self, batch):
         self.iteration.assign_add(1)
         predictions = self.models['model'](batch[0])
         self.metrics['acc'].update_state(batch[1], predictions)
