@@ -20,7 +20,7 @@ def get_backbone(name):
     elif name == 'efficient_net_b5':
         backbone = efficient_net.EfficientNetB5
     else:
-        raise ValueError('Invalid name: {name}')
+        raise ValueError(f'Invalid name: {name}')
     return backbone
 
 
