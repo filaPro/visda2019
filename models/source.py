@@ -34,7 +34,7 @@ class SourceTrainStep:
 
     @tf.function
     def validate(self, batch):
-        predictions = tuple(self.models['model'](batch[i][0]) for i in range(self.n_sources))
+        predictions = tuple(self.models['model'](batch[i][0], training=False) for i in range(self.n_sources))
         for i in range(self.n_sources):
             self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i][1], predictions[i])
 
@@ -81,7 +81,7 @@ class SourceTestStep:
     @tf.function
     def test(self, batch):
         self.iteration.assign_add(1)
-        predictions = self.models['model'](batch[0])
+        predictions = self.models['model'](batch[0], training=False)
         self.metrics['acc'].update_state(batch[1], predictions)
 
     @staticmethod

@@ -10,10 +10,10 @@ from preprocessor import Preprocessor
 RAW_DATA_PATH = '/content/data/raw'
 LOG_PATH = '/content/data/logs'
 BATCH_SIZE = 32
-IMAGE_SIZE = 96
-BACKBONE_NAME = 'efficient_net_b0'
+IMAGE_SIZE = 64
+BACKBONE_NAME = 'mobilenet_v2'
 CONFIG = [
-    {'method': 'keras', 'mode': 'torch'},
+    {'method': 'keras', 'mode': 'tf'},
     {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE}
 ]
 
@@ -43,7 +43,7 @@ train_dataset = iter(make_dataset(
     target_paths=target_paths,
     target_labels=target_labels,
     target_config=CONFIG,
-    batch_size=BATCH_SIZE,
+    batch_size=BATCH_SIZE
 ))
 validate_dataset = iter(make_dataset(
     source_paths=paths_and_labels['source']['test']['paths'],
@@ -52,13 +52,13 @@ validate_dataset = iter(make_dataset(
     target_paths=target_paths,
     target_labels=target_labels,
     target_config=CONFIG,
-    batch_size=BATCH_SIZE,
+    batch_size=BATCH_SIZE
 ))
 
 train_step = SourceTrainStep(
     build_model_lambda=build_model_lambda,
     domains=DOMAINS,
-    n_frozen_layers=143,
+    n_frozen_layers=230,
     learning_rate=0.001
 )
 trainer = Trainer(
@@ -100,3 +100,4 @@ test_dataset = iter(make_domain_dataset(
 test_step = SourceTestStep(build_model_lambda, domains=DOMAINS)
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
+# >>> acc: 9.74910e-02
