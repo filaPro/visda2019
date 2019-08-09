@@ -10,7 +10,7 @@ from preprocessor import Preprocessor
 RAW_DATA_PATH = '/content/data/raw'
 LOG_PATH = '/content/data/logs'
 BATCH_SIZE = 32
-IMAGE_SIZE = 64
+IMAGE_SIZE = 224
 BACKBONE_NAME = 'mobilenet_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
@@ -33,7 +33,7 @@ def build_model(image_size, n_classes, name):
 
 build_model_lambda = partial(build_model, image_size=IMAGE_SIZE, n_classes=N_CLASSES, name=BACKBONE_NAME)
 
-paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS, 3)
+paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
 target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
 target_labels = paths_and_labels['target']['train']['labels'] + paths_and_labels['target']['test']['labels']
 train_dataset = iter(make_dataset(
@@ -81,9 +81,9 @@ train_step = SourceTrainStep(
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=1000,
+    n_iterations=2000,
     n_log_iterations=100,
-    n_save_iterations=1000,
+    n_save_iterations=2000,
     n_validate_iterations=10,
     log_path=LOG_PATH,
     restore_model_flag=True,
@@ -100,4 +100,4 @@ test_dataset = iter(make_domain_dataset(
 test_step = SourceTestStep(build_model_lambda, domains=DOMAINS)
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
-# >>> acc: 9.74910e-02
+# >>> acc: 2.98042e-01

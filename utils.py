@@ -1,6 +1,5 @@
 import os
 import random
-import numpy as np
 import tensorflow as tf
 
 from preprocessor import Preprocessor
@@ -53,7 +52,7 @@ def read_domain_paths_and_labels(path, domain, phase):
     return paths, labels
 
 
-def read_paths_and_labels(path, domains, target_domain_id):
+def read_paths_and_labels(path, domains):
     print('source:')
     paths_and_labels = {
         'source': {
@@ -77,15 +76,14 @@ def read_paths_and_labels(path, domains, target_domain_id):
             }
         }
     }
-    source_domain_ids = np.setdiff1d(np.arange(len(domains)), (target_domain_id,))
-    for domain_id in source_domain_ids:
+    for domain_id in range(len(domains) - 1):
         for phase in ('train', 'test'):
             paths, labels = read_domain_paths_and_labels(path, domains[domain_id], phase)
             paths_and_labels['source'][phase]['paths'].append(paths)
             paths_and_labels['source'][phase]['labels'].append(labels)
     print('target:')
     for phase in ('train', 'test'):
-        paths, labels = read_domain_paths_and_labels(path, domains[target_domain_id], phase)
+        paths, labels = read_domain_paths_and_labels(path, domains[-1], phase)
         paths_and_labels['target'][phase]['paths'] = paths
         paths_and_labels['target'][phase]['labels'] = labels
     return paths_and_labels
