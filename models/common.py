@@ -19,6 +19,10 @@ def get_backbone(name):
         backbone = efficient_net.EfficientNetB4
     elif name == 'efficient_net_b5':
         backbone = efficient_net.EfficientNetB5
+    elif name == 'efficient_net_b6':
+        backbone = efficient_net.EfficientNetB6
+    elif name == 'efficient_net_b7':
+        backbone = efficient_net.EfficientNetB7
     else:
         raise ValueError(f'Invalid name: {name}')
     return backbone
