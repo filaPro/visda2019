@@ -70,13 +70,13 @@ class M3sdaTrainStep:
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
-            source_features = tuple(self.models['generator'](batch[i][0]) for i in range(self.n_sources))
-            target_features = self.models['generator'](batch[-1][0])
+            source_features = tuple(self.models['generator'](batch[i][0], training=True) for i in range(self.n_sources))
+            target_features = self.models['generator'](batch[-1][0], training=True)
             source_predictions = tuple(
-                self.models[f'classifier_{i}'](source_features[i]) for i in range(self.n_sources)
+                self.models[f'classifier_{i}'](source_features[i], training=True) for i in range(self.n_sources)
             )
             target_predictions = tuple(
-                self.models[f'classifier_{i}'](target_features) for i in range(self.n_sources)
+                self.models[f'classifier_{i}'](target_features, training=True) for i in range(self.n_sources)
             )
             classification_loss = self.losses['classification'](
                 tuple(zip(*batch[:self.n_sources]))[1], source_predictions

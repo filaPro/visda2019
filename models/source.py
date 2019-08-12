@@ -18,8 +18,8 @@ class SourceTrainStep:
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
-            source_predictions = tuple(self.models['model'](batch[i][0]) for i in range(self.n_sources))
-            target_predictions = self.models['model'](batch[-1][0])
+            source_predictions = tuple(self.models['model'](batch[i][0], training=True) for i in range(self.n_sources))
+            target_predictions = self.models['model'](batch[-1][0], training=True)
             loss = self.losses['classification'](
                 tuple(zip(*batch[:self.n_sources]))[1], source_predictions
             )

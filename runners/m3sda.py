@@ -129,7 +129,8 @@ test_dataset = iter(make_domain_dataset(
     paths=target_paths,
     labels=target_labels,
     preprocessor=Preprocessor(CONFIG),
-    batch_size=BATCH_SIZE
+    batch_size=BATCH_SIZE,
+    seed=None
 ))
 test_step = M3sdaTestStep(build_generator_lambda, build_classifier_lambda, domains=DOMAINS)
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
