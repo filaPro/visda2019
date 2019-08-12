@@ -95,9 +95,10 @@ test_dataset = iter(make_domain_dataset(
     paths=target_paths,
     labels=target_labels,
     preprocessor=Preprocessor(CONFIG),
-    batch_size=BATCH_SIZE
+    batch_size=BATCH_SIZE,
+    seed=None
 ))
-test_step = SourceTestStep(build_model_lambda, domains=DOMAINS)
+test_step = SourceTestStep(build_model_lambda)
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
 # >>> acc: 2.98042e-01

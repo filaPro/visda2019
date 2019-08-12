@@ -72,8 +72,7 @@ class SourceTrainStep:
 
 
 class SourceTestStep:
-    def __init__(self, build_model_lambda, domains):
-        self.n_sources = len(domains) - 1
+    def __init__(self, build_model_lambda):
         self.iteration = tf.Variable(0, name='iteration')
         self.models = self._init_models(build_model_lambda)
         self.metrics = self._init_metrics()

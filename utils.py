@@ -99,12 +99,12 @@ def decode_image(path):
     return tf.cast(image, tf.float32)
 
 
-def make_domain_dataset(paths, labels, preprocessor, batch_size):
+def make_domain_dataset(paths, labels, preprocessor, batch_size, seed):
     return tf.data.Dataset.zip((
         tf.data.Dataset.from_tensor_slices(paths),
         tf.data.Dataset.from_tensor_slices(labels)
     )).shuffle(
-        23456
+        23456, seed
     ).map(
         lambda path, label: (preprocessor(decode_image(path)), label)
     ).batch(batch_size)
@@ -119,6 +119,6 @@ def make_dataset(
     target_preprocessor = Preprocessor(target_config)
     datasets = []
     for paths, labels in zip(source_paths, source_labels):
-        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size))
-    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size))
+        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size, None))
+    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size, None))
     return tf.data.Dataset.zip(tuple(datasets)).repeat()
