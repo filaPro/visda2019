@@ -4,11 +4,15 @@ from .common import ClassificationLoss
 
 
 class SourceTrainStep:
-    def __init__(self, build_model_lambda, domains, n_frozen_layers, learning_rate):
+    def __init__(
+        self, build_backbone_lambda, build_top_lambda, domains, freeze_backbone_flag, backbone_training_flag,
+        learning_rate
+    ):
         self.n_sources = len(domains) - 1
         self.domains = domains
+        self.backbone_training_flag = backbone_training_flag
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(build_model_lambda, n_frozen_layers)
+        self.models = self._init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag)
         self.losses = self._init_losses()
         self.metrics = self._init_metrics()
         self.optimizers = self._init_optimizers(learning_rate)
@@ -18,34 +22,48 @@ class SourceTrainStep:
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
-            source_predictions = tuple(self.models['model'](batch[i][0], training=True) for i in range(self.n_sources))
-            target_predictions = self.models['model'](batch[-1][0], training=True)
-            loss = self.losses['classification'](
-                tuple(zip(*batch[:self.n_sources]))[1], source_predictions
+            source_top_features = tuple(
+                self.models['backbone'](batch[i][0], training=self.backbone_training_flag)
+                for i in range(self.n_sources)
             )
+            source_predictions = tuple(
+                self.models['top'](source_top_features[i], training=True)
+                for i in range(self.n_sources)
+            )
+            loss = self.losses['classification'](tuple(zip(*batch[:self.n_sources]))[1], source_predictions)
 
-        trainable_variables = self.models['model'].trainable_variables
+        trainable_variables = self.models['backbone'].trainable_variables + self.models['top'].trainable_variables
         self.optimizers['optimizer'].apply_gradients(zip(tape.gradient(loss, trainable_variables), trainable_variables))
 
         self.metrics['scce'].update_state(loss)
+        target_top_features = self.models['backbone'](batch[-1][0], training=False)
+        target_predictions = self.models['top'](target_top_features, training=False)
         self.metrics['target_acc'].update_state(batch[-1][1], target_predictions)
         for i in range(self.n_sources):
             self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i][1], source_predictions[i])
 
     @tf.function
     def validate(self, batch):
-        predictions = tuple(self.models['model'](batch[i][0], training=False) for i in range(self.n_sources))
+        top_features = tuple(
+            self.models['backbone'](batch[i][0], training=False)
+            for i in range(self.n_sources)
+        )
+        predictions = tuple(
+            self.models['top'](top_features[i], training=True)
+            for i in range(self.n_sources)
+        )
         for i in range(self.n_sources):
             self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i][1], predictions[i])
 
     @staticmethod
-    def _init_models(build_model_lambda, n_frozen_layers):
+    def _init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag):
         models = {
-            'model': build_model_lambda()
+            'backbone': build_backbone_lambda(),
+            'top': build_top_lambda()
         }
-        backbone = models['model'].layers[0]
-        for layer in backbone.layers[:n_frozen_layers]:
-            layer.trainable = False
+        if freeze_backbone_flag:
+            for layer in models['backbone'].layers:
+                layer.trainable = False
         return models
 
     @staticmethod
@@ -72,21 +90,23 @@ class SourceTrainStep:
 
 
 class SourceTestStep:
-    def __init__(self, build_model_lambda):
+    def __init__(self, build_backbone_lambda, build_top_lambda):
         self.iteration = tf.Variable(0, name='iteration')
-        self.models = self._init_models(build_model_lambda)
+        self.models = self._init_models(build_backbone_lambda, build_top_lambda)
         self.metrics = self._init_metrics()
 
     @tf.function
     def test(self, batch):
         self.iteration.assign_add(1)
-        predictions = self.models['model'](batch[0], training=False)
+        top_features = self.models['backbone'](batch[0], training=False)
+        predictions = self.models['top'](top_features, training=False)
         self.metrics['acc'].update_state(batch[1], predictions)
 
     @staticmethod
-    def _init_models(build_model_lambda):
+    def _init_models(build_backbone_lambda, build_model_lambda):
         return {
-            'model': build_model_lambda()
+            'backbone': build_backbone_lambda(),
+            'top': build_model_lambda()
         }
 
     @staticmethod

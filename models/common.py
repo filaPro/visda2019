@@ -28,6 +28,14 @@ def get_backbone(name):
     return backbone
 
 
+def build_backbone(name, size):
+    return get_backbone(name)(
+        input_shape=(size, size, 3),
+        include_top=False,
+        weights='imagenet'
+    )
+
+
 class ClassificationLoss:
     def __init__(self):
         self.scorer = tf.keras.losses.SparseCategoricalCrossentropy()

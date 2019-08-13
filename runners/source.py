@@ -3,7 +3,7 @@ from functools import partial
 
 from trainer import Trainer
 from tester import Tester
-from models import SourceTrainStep, SourceTestStep, get_backbone
+from models import SourceTrainStep, SourceTestStep, build_backbone
 from utils import DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset
 from preprocessor import Preprocessor
 
@@ -18,20 +18,16 @@ CONFIG = [
 ]
 
 
-def build_model(image_size, n_classes, name):
+def build_top(n_classes):
     return tf.keras.Sequential([
-        get_backbone(name)(
-            input_shape=(image_size, image_size, 3),
-            include_top=False,
-            weights='imagenet'
-        ),
-        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
         tf.keras.layers.Dense(4096, activation='relu'),
         tf.keras.layers.Dense(n_classes, input_shape=(4096,), activation='softmax')
     ])
 
 
-build_model_lambda = partial(build_model, image_size=IMAGE_SIZE, n_classes=N_CLASSES, name=BACKBONE_NAME)
+build_top_lambda = partial(build_top, n_classes=N_CLASSES)
+build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
 target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
@@ -56,9 +52,11 @@ validate_dataset = iter(make_dataset(
 ))
 
 train_step = SourceTrainStep(
-    build_model_lambda=build_model_lambda,
+    build_backbone_lambda=build_backbone_lambda,
+    build_top_lambda=build_top_lambda,
     domains=DOMAINS,
-    n_frozen_layers=230,
+    freeze_backbone_flag=True,
+    backbone_training_flag=False,
     learning_rate=0.001
 )
 trainer = Trainer(
@@ -74,9 +72,11 @@ trainer = Trainer(
 trainer(validate_dataset, train_dataset)
 
 train_step = SourceTrainStep(
-    build_model_lambda=build_model_lambda,
+    build_backbone_lambda=build_backbone_lambda,
+    build_top_lambda=build_top_lambda,
     domains=DOMAINS,
-    n_frozen_layers=0,
+    freeze_backbone_flag=False,
+    backbone_training_flag=False,
     learning_rate=0.0001
 )
 trainer = Trainer(
@@ -98,7 +98,10 @@ test_dataset = iter(make_domain_dataset(
     batch_size=BATCH_SIZE,
     seed=None
 ))
-test_step = SourceTestStep(build_model_lambda)
+test_step = SourceTestStep(
+    build_backbone_lambda=build_backbone_lambda,
+    build_top_lambda=build_top_lambda
+)
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
 # >>> acc: 2.98042e-01
