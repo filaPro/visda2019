@@ -2,8 +2,6 @@ import os
 import random
 import tensorflow as tf
 
-from preprocessor import Preprocessor
-
 
 DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch')
 N_CLASSES = 345
@@ -99,26 +97,24 @@ def decode_image(path):
     return tf.cast(image, tf.float32)
 
 
-def make_domain_dataset(paths, labels, preprocessor, batch_size, seed):
+def make_domain_dataset(paths, labels, preprocessor, batch_size):
     return tf.data.Dataset.zip((
         tf.data.Dataset.from_tensor_slices(paths),
         tf.data.Dataset.from_tensor_slices(labels)
     )).shuffle(
-        23456, seed
+        23456
     ).map(
         lambda path, label: (preprocessor(decode_image(path)), label)
     ).batch(batch_size)
 
 
 def make_dataset(
-    source_paths, source_labels, source_config,
-    target_paths, target_labels, target_config,
+    source_paths, source_labels, source_preprocessor,
+    target_paths, target_labels, target_preprocessor,
     batch_size
 ):
-    source_preprocessor = Preprocessor(source_config)
-    target_preprocessor = Preprocessor(target_config)
     datasets = []
     for paths, labels in zip(source_paths, source_labels):
-        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size, None))
-    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size, None))
+        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size))
+    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size))
     return tf.data.Dataset.zip(tuple(datasets)).repeat()
