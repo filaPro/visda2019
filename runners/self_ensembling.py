@@ -38,7 +38,7 @@ def build_top(n_classes):
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 preprocessor = Preprocessor(CONFIG)
-twice_preprocessor = TwiceAugmentedPreprocessor(first_config=CONFIG, second_config=TWICE_CONFIG)
+twice_preprocessor = TwiceAugmentedPreprocessor(first_config=TWICE_CONFIG, second_config=CONFIG)
 
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
 target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
@@ -60,14 +60,14 @@ train_step = SelfEnsemblingTrainStep(
     freeze_backbone_flag=True,
     backbone_training_flag=False,
     learning_rate=0.001,
-    loss_weight=1.,
-    decay=.99
+    loss_weight=10.,
+    decay=.999
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=500,
+    n_iterations=1000,
     n_log_iterations=100,
-    n_save_iterations=500,
+    n_save_iterations=1000,
     n_validate_iterations=0,
     log_path=LOG_PATH,
     restore_model_flag=False,
@@ -82,14 +82,14 @@ train_step = SelfEnsemblingTrainStep(
     freeze_backbone_flag=False,
     backbone_training_flag=False,
     learning_rate=0.0001,
-    loss_weight=1.,
-    decay=.99
+    loss_weight=10.,
+    decay=.999
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=5000,
+    n_iterations=10000,
     n_log_iterations=100,
-    n_save_iterations=5000,
+    n_save_iterations=10000,
     n_validate_iterations=0,
     log_path=LOG_PATH,
     restore_model_flag=True,
