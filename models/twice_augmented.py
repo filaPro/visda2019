@@ -14,22 +14,6 @@ class TwiceAugmentedPreprocessor:
         return self.first_preprocessor(image), self.second_preprocessor(image)
 
 
-# def make_twice_augmented_dataset(
-#     source_paths, source_labels, source_config,
-#     target_paths, target_labels, first_target_config, second_target_config,
-#     batch_size
-# ):
-#     source_preprocessor = Preprocessor(source_config)
-#     first_target_preprocessor = Preprocessor(first_target_config)
-#     second_target_preprocessor = Preprocessor(second_target_config)
-#     datasets = []
-#     for paths, labels in zip(source_paths, source_labels):
-#         datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size, None))
-#     datasets.append(make_domain_dataset(target_paths, target_labels, first_target_preprocessor, batch_size, 42))
-#     datasets.append(make_domain_dataset(target_paths, target_labels, second_target_preprocessor, batch_size, 42))
-#     return tf.data.Dataset.zip(tuple(datasets)).repeat()
-
-
 class TwiceAugmentedTrainStep:
     def __init__(
         self, build_backbone_lambda, build_top_lambda, domains, freeze_backbone_flag, backbone_training_flag,
