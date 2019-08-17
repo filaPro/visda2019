@@ -106,8 +106,13 @@ def make_domain_dataset(paths, labels, preprocessor, batch_size):
     )).shuffle(
         23456
     ).map(
-        lambda path, label: (preprocessor(decode_image(path)), label)
-    ).batch(batch_size)
+        lambda path, label: (preprocessor(decode_image(path)), label),
+        tf.data.experimental.AUTOTUNE
+    ).batch(
+        batch_size
+    ).prefetch(
+        tf.data.experimental.AUTOTUNE
+    )
 
 
 def make_dataset(
