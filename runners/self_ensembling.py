@@ -63,9 +63,9 @@ train_step = SelfEnsemblingTrainStep(
     domains=DOMAINS,
     freeze_backbone_flag=True,
     backbone_training_flag=False,
-    learning_rate=0.001,
+    learning_rate=.001,
     loss_weight=10.,
-    decay=.999
+    decay=.99
 )
 trainer = Trainer(
     train_step=train_step,
@@ -77,6 +77,7 @@ trainer = Trainer(
     restore_model_flag=False,
     restore_optimizer_flag=False
 )
+copy_runner(__file__, LOG_PATH)
 trainer(train_dataset, None)
 
 train_step = SelfEnsemblingTrainStep(
@@ -85,15 +86,37 @@ train_step = SelfEnsemblingTrainStep(
     domains=DOMAINS,
     freeze_backbone_flag=False,
     backbone_training_flag=False,
-    learning_rate=0.0001,
+    learning_rate=.0001,
     loss_weight=10.,
     decay=.999
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=10000,
+    n_iterations=5000,
     n_log_iterations=100,
-    n_save_iterations=10000,
+    n_save_iterations=5000,
+    n_validate_iterations=0,
+    log_path=LOG_PATH,
+    restore_model_flag=True,
+    restore_optimizer_flag=False
+)
+trainer(train_dataset, None)
+
+train_step = SelfEnsemblingTrainStep(
+    build_backbone_lambda=build_backbone_lambda,
+    build_top_lambda=build_top_lambda,
+    domains=DOMAINS,
+    freeze_backbone_flag=False,
+    backbone_training_flag=False,
+    learning_rate=.00001,
+    loss_weight=10.,
+    decay=.9999
+)
+trainer = Trainer(
+    train_step=train_step,
+    n_iterations=5000,
+    n_log_iterations=100,
+    n_save_iterations=5000,
     n_validate_iterations=0,
     log_path=LOG_PATH,
     restore_model_flag=True,

@@ -85,9 +85,9 @@ train_step = SourceTrainStep(
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=200,
+    n_iterations=2000,
     n_log_iterations=100,
-    n_save_iterations=200,
+    n_save_iterations=2000,
     n_validate_iterations=10,
     log_path=LOG_PATH,
     restore_model_flag=True,
@@ -107,4 +107,3 @@ test_step = SourceTestStep(
 )
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
-# >>> acc: 2.98042e-01

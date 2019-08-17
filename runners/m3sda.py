@@ -138,4 +138,3 @@ test_step = M3sdaTestStep(
 )
 tester = Tester(test_step=test_step, log_path=LOG_PATH)
 tester(test_dataset)
-# >>> acc: 2.98241e-01

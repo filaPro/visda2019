@@ -135,7 +135,6 @@ class M3sdaTrainStep:
         }
         for i in range(self.n_sources):
             metrics[f'{self.domains[i]}_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
-            metrics[f'{self.domains[i]}_val_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
         return metrics
 
     @staticmethod
