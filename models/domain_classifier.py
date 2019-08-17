@@ -38,7 +38,7 @@ class DomainClassifierTrainStep:
             target_discriminator_predictions = self.models['discriminator'](target_features, training=True)
             discriminator_predictions = source_discriminator_predictions + (target_discriminator_predictions,)
             discriminator_labels = tuple(
-                tf.ones((discriminator_predictions[i].shape[0],), dtype=tf.uint8)for i in range(self.n_sources + 1)
+                tf.ones((discriminator_predictions[i].shape[0],), dtype=tf.uint8) * i for i in range(self.n_sources + 1)
             )
             classification_loss = self.losses['classification'](
                 tuple(zip(*batch[:self.n_sources]))[1], source_predictions
@@ -67,15 +67,6 @@ class DomainClassifierTrainStep:
             self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i][1], source_predictions[i])
         for i in range(self.n_sources + 1):
             self.metrics['domain_acc'].update_state(discriminator_labels[i], discriminator_predictions[i])
-
-    @tf.function
-    def validate(self, batch):
-        source_features = tuple(self.models['generator'](batch[i][0], training=False) for i in range(self.n_sources))
-        source_predictions = tuple(
-            self.models[f'classifier_{i}'](source_features[i], training=False) for i in range(self.n_sources)
-        )
-        for i in range(self.n_sources):
-            self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i][1], source_predictions[i])
 
     def _init_models(
         self, build_discriminator_lambda, build_generator_lambda, build_classifier_lambda, n_frozen_layers

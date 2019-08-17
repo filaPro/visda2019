@@ -4,11 +4,13 @@ from functools import partial
 from trainer import Trainer
 from tester import Tester
 from models import SourceTrainStep, SourceTestStep, build_backbone
-from utils import DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset
+from utils import (
+    DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
+)
 from preprocessor import Preprocessor
 
 RAW_DATA_PATH = '/content/data/raw'
-LOG_PATH = '/content/data/logs'
+LOG_PATH = f'/content/data/logs/{get_time_string()}-source'
 BATCH_SIZE = 24
 IMAGE_SIZE = 224
 BACKBONE_NAME = 'mobilenet_v2'
@@ -58,18 +60,19 @@ train_step = SourceTrainStep(
     domains=DOMAINS,
     freeze_backbone_flag=True,
     backbone_training_flag=False,
-    learning_rate=0.001
+    learning_rate=.001
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=500,
+    n_iterations=200,
     n_log_iterations=100,
-    n_save_iterations=500,
+    n_save_iterations=200,
     n_validate_iterations=10,
     log_path=LOG_PATH,
     restore_model_flag=False,
     restore_optimizer_flag=False
 )
+copy_runner(__file__, LOG_PATH)
 trainer(train_dataset, validate_dataset)
 
 train_step = SourceTrainStep(
@@ -78,13 +81,13 @@ train_step = SourceTrainStep(
     domains=DOMAINS,
     freeze_backbone_flag=False,
     backbone_training_flag=False,
-    learning_rate=0.0001
+    learning_rate=.0001
 )
 trainer = Trainer(
     train_step=train_step,
-    n_iterations=2000,
+    n_iterations=200,
     n_log_iterations=100,
-    n_save_iterations=2000,
+    n_save_iterations=200,
     n_validate_iterations=10,
     log_path=LOG_PATH,
     restore_model_flag=True,

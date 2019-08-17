@@ -1,11 +1,13 @@
 import os
 import tensorflow as tf
 
+from utils import get_time_string
+
 
 class Trainer:
     def __init__(
         self, train_step, n_iterations, n_log_iterations, n_save_iterations, n_validate_iterations,
-            log_path, restore_model_flag, restore_optimizer_flag
+        log_path, restore_model_flag, restore_optimizer_flag
     ):
         """
         :param train_step: requires `.iteration`, `.metrics`, `.losses`, `.optimizers`, `.train(batch)`,
@@ -16,6 +18,7 @@ class Trainer:
         self.n_log_iterations = n_log_iterations
         self.n_save_iterations = n_save_iterations
         self.n_validate_iterations = n_validate_iterations
+        self.log_path = os.path.join(log_path, 'log.txt')
         self.checkpoint = tf.train.Checkpoint(**train_step.models, **train_step.optimizers)
         checkpoint_path = os.path.join(log_path, 'checkpoint')
         self.checkpoint_manager = tf.train.CheckpointManager(self.checkpoint, checkpoint_path, max_to_keep=5)
@@ -46,6 +49,8 @@ class Trainer:
             print(string, end='')
             if self.n_log_iterations and iteration % self.n_log_iterations == self.n_log_iterations - 1:
                 print()
+                with open(self.log_path, 'a') as file:
+                    file.write(f'{get_time_string()} Trainer: {string[1:]}\n')
             if self.n_save_iterations and iteration % self.n_save_iterations == self.n_save_iterations - 1:
                 checkpoint_path = self.checkpoint_manager.save()
                 print(f'iteration: {iteration + 1}, save: {checkpoint_path}')

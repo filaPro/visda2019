@@ -4,16 +4,17 @@ from .common import ClassificationLoss
 
 
 class GradientReverse(tf.keras.layers.Layer):
-    def __init__(self):
+    def __init__(self, multiplier):
         super().__init__()
+        self.multiplier = multiplier
 
     def call(self, x):
-        return self._reverse_gradient(x)
+        return self._reverse_gradient(x, self.multiplier)
 
     @staticmethod
     @tf.custom_gradient
-    def _reverse_gradient(x):
-        return x, lambda d: -d
+    def _reverse_gradient(x, multiplier):
+        return x, lambda d: -d * multiplier
 
 
 class DannTrainStep:
@@ -121,4 +122,33 @@ class DannTrainStep:
     def _init_optimizers(learning_rate):
         return {
             'optimizer': tf.keras.optimizers.Adam(learning_rate)
+        }
+
+
+class DannTestStep:
+    def __init__(self, build_backbone_lambda, build_bottom_lambda, build_top_lambda):
+        self.iteration = tf.Variable(0, name='iteration')
+        self.models = self._init_models(build_backbone_lambda, build_bottom_lambda, build_top_lambda)
+        self.metrics = self._init_metrics()
+
+    @tf.function
+    def test(self, batch):
+        self.iteration.assign_add(1)
+        bottom_features = self.models['backbone'](batch[0], training=False)
+        top_features = self.models['bottom'](bottom_features, training=False)
+        predictions = self.models['top'](top_features, training=False)
+        self.metrics['acc'].update_state(batch[1], predictions)
+
+    @staticmethod
+    def _init_models(build_backbone_lambda, build_bottom_lambda, build_top_lambda):
+        return {
+            'backbone': build_backbone_lambda(),
+            'bottom': build_bottom_lambda(),
+            'top': build_top_lambda(),
+        }
+
+    @staticmethod
+    def _init_metrics():
+        return {
+            'acc': tf.keras.metrics.SparseCategoricalAccuracy()
         }

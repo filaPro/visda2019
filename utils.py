@@ -1,6 +1,8 @@
 import os
 import random
+import shutil
 import tensorflow as tf
+from datetime import datetime
 
 
 DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch')
@@ -118,3 +120,12 @@ def make_dataset(
         datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size))
     datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size))
     return tf.data.Dataset.zip(tuple(datasets)).repeat()
+
+
+def get_time_string():
+    return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
+
+
+def copy_runner(file, path):
+    os.makedirs(path)
+    shutil.copy(os.path.realpath(file), path)

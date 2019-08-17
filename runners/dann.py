@@ -3,12 +3,14 @@ from functools import partial
 
 from trainer import Trainer
 from tester import Tester
-from models import DannTrainStep, SourceTestStep, GradientReverse, build_backbone
-from utils import DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset
+from models import DannTrainStep, DannTestStep, GradientReverse, build_backbone
+from utils import (
+    DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
+)
 from preprocessor import Preprocessor
 
 RAW_DATA_PATH = '/content/data/raw'
-LOG_PATH = '/content/data/logs'
+LOG_PATH = f'/content/data/logs/{get_time_string()}-dann'
 BATCH_SIZE = 24
 IMAGE_SIZE = 224
 BACKBONE_NAME = 'mobilenet_v2'
@@ -33,7 +35,7 @@ def build_top(n_classes):
 
 def build_discriminator(n_domains):
     return tf.keras.Sequential([
-        GradientReverse(),
+        GradientReverse(.5),
         tf.keras.layers.Dense(64, input_shape=(4096,), activation='relu'),
         tf.keras.layers.Dense(n_domains, activation='softmax')
     ])
@@ -47,18 +49,11 @@ preprocessor = Preprocessor(CONFIG)
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
 target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
 target_labels = paths_and_labels['target']['train']['labels'] + paths_and_labels['target']['test']['labels']
+source_paths = paths_and_labels['source']['train']['paths'] + paths_and_labels['source']['test']['paths']
+source_labels = paths_and_labels['source']['train']['labels'] + paths_and_labels['source']['test']['labels']
 train_dataset = iter(make_dataset(
-    source_paths=paths_and_labels['source']['train']['paths'],
-    source_labels=paths_and_labels['source']['train']['labels'],
-    source_preprocessor=preprocessor,
-    target_paths=target_paths,
-    target_labels=target_labels,
-    target_preprocessor=preprocessor,
-    batch_size=BATCH_SIZE
-))
-validate_dataset = iter(make_dataset(
-    source_paths=paths_and_labels['source']['test']['paths'],
-    source_labels=paths_and_labels['source']['test']['labels'],
+    source_paths=source_paths,
+    source_labels=source_labels,
     source_preprocessor=preprocessor,
     target_paths=target_paths,
     target_labels=target_labels,
@@ -74,7 +69,7 @@ train_step = DannTrainStep(
     domains=DOMAINS,
     freeze_backbone_flag=True,
     backbone_training_flag=False,
-    learning_rate=0.001,
+    learning_rate=.001,
     loss_weight=1.
 )
 trainer = Trainer(
@@ -87,4 +82,19 @@ trainer = Trainer(
     restore_model_flag=False,
     restore_optimizer_flag=False
 )
-trainer(train_dataset, validate_dataset)
+copy_runner(__file__, LOG_PATH)
+trainer(train_dataset, None)
+
+test_dataset = iter(make_domain_dataset(
+    paths=target_paths,
+    labels=target_labels,
+    preprocessor=Preprocessor(CONFIG),
+    batch_size=BATCH_SIZE
+))
+test_step = DannTestStep(
+    build_backbone_lambda=build_backbone_lambda,
+    build_bottom_lambda=build_bottom,
+    build_top_lambda=build_top_lambda
+)
+tester = Tester(test_step=test_step, log_path=LOG_PATH)
+tester(test_dataset)

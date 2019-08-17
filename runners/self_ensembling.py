@@ -4,11 +4,13 @@ from functools import partial
 from trainer import Trainer
 from tester import Tester
 from models import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, TwiceAugmentedPreprocessor, build_backbone
-from utils import DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset
+from utils import (
+    DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
+)
 from preprocessor import Preprocessor
 
 RAW_DATA_PATH = '/content/data/raw'
-LOG_PATH = '/content/data/logs'
+LOG_PATH = f'/content/data/logs/{get_time_string()}-self-ensembling'
 BATCH_SIZE = 4
 IMAGE_SIZE = 224
 BACKBONE_NAME = 'efficient_net_b5'
@@ -43,9 +45,11 @@ twice_preprocessor = TwiceAugmentedPreprocessor(first_config=TWICE_CONFIG, secon
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
 target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
 target_labels = paths_and_labels['target']['train']['labels'] + paths_and_labels['target']['test']['labels']
+source_paths = paths_and_labels['source']['train']['paths'] + paths_and_labels['source']['test']['paths']
+source_labels = paths_and_labels['source']['train']['labels'] + paths_and_labels['source']['test']['labels']
 train_dataset = iter(make_dataset(
-    source_paths=paths_and_labels['source']['train']['paths'],
-    source_labels=paths_and_labels['source']['train']['labels'],
+    source_paths=source_paths,
+    source_labels=source_labels,
     source_preprocessor=preprocessor,
     target_paths=target_paths,
     target_labels=target_labels,
