@@ -63,6 +63,10 @@ def read_paths_and_labels(path, domains):
             'test': {
                 'labels': [],
                 'paths': []
+            },
+            'all': {
+                'labels': [],
+                'paths': []
             }
         },
         'target': {
@@ -73,19 +77,34 @@ def read_paths_and_labels(path, domains):
             'test': {
                 'labels': [],
                 'paths': []
+            },
+            'all': {
+                'labels': [],
+                'paths': []
             }
         }
     }
-    for domain_id in range(len(domains) - 1):
+    for i in range(len(domains) - 1):
         for phase in ('train', 'test'):
-            paths, labels = read_domain_paths_and_labels(path, domains[domain_id], phase)
+            paths, labels = read_domain_paths_and_labels(path, domains[i], phase)
             paths_and_labels['source'][phase]['paths'].append(paths)
             paths_and_labels['source'][phase]['labels'].append(labels)
+    for i in range(len(domains) - 1):
+        paths_and_labels['source']['all']['paths'].append(
+            paths_and_labels['source']['train']['paths'][i] + paths_and_labels['source']['test']['paths'][i]
+        )
+        paths_and_labels['source']['all']['labels'].append(
+            paths_and_labels['source']['train']['labels'][i] + paths_and_labels['source']['test']['labels'][i]
+        )
     print('target:')
     for phase in ('train', 'test'):
         paths, labels = read_domain_paths_and_labels(path, domains[-1], phase)
         paths_and_labels['target'][phase]['paths'] = paths
         paths_and_labels['target'][phase]['labels'] = labels
+    paths_and_labels['target']['all']['paths'] = paths_and_labels['target']['train']['paths'] + \
+        paths_and_labels['target']['test']['paths']
+    paths_and_labels['target']['all']['labels'] = paths_and_labels['target']['train']['labels'] + \
+        paths_and_labels['target']['test']['labels']
     return paths_and_labels
 
 

@@ -1,6 +1,17 @@
 import tensorflow as tf
 
 from .common import ClassificationLoss
+from preprocessor import Preprocessor
+
+
+class SelfEnsemblingPreprocessor:
+    def __init__(self, first_config, second_config):
+        self.first_preprocessor = Preprocessor(first_config)
+        self.second_preprocessor = Preprocessor(second_config)
+
+    @tf.function
+    def __call__(self, image):
+        return self.first_preprocessor(image), self.second_preprocessor(image)
 
 
 class ExponentialMovingAveraging:

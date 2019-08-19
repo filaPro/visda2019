@@ -39,16 +39,12 @@ build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 preprocessor = Preprocessor(CONFIG)
 
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
-target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
-target_labels = paths_and_labels['target']['train']['labels'] + paths_and_labels['target']['test']['labels']
-source_paths = paths_and_labels['source']['train']['paths'] + paths_and_labels['source']['test']['paths']
-source_labels = paths_and_labels['source']['train']['labels'] + paths_and_labels['source']['test']['labels']
 train_dataset = iter(make_dataset(
-    source_paths=source_paths,
-    source_labels=source_labels,
+    source_paths=paths_and_labels['source']['all']['paths'],
+    source_labels=paths_and_labels['source']['all']['labels'],
     source_preprocessor=preprocessor,
-    target_paths=target_paths,
-    target_labels=target_labels,
+    target_paths=paths_and_labels['target']['all']['paths'],
+    target_labels=paths_and_labels['target']['all']['labels'],
     target_preprocessor=preprocessor,
     batch_size=BATCH_SIZE
 ))
@@ -125,8 +121,8 @@ trainer(train_dataset, None)
 
 
 test_dataset = iter(make_domain_dataset(
-    paths=target_paths,
-    labels=target_labels,
+    paths=paths_and_labels['target']['all']['paths'],
+    labels=paths_and_labels['target']['all']['labels'],
     preprocessor=Preprocessor(CONFIG),
     batch_size=BATCH_SIZE
 ))

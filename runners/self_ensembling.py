@@ -3,7 +3,7 @@ from functools import partial
 
 from trainer import Trainer
 from tester import Tester
-from models import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, TwiceAugmentedPreprocessor, build_backbone
+from models import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
     DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
 )
@@ -40,20 +40,16 @@ def build_top(n_classes):
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 preprocessor = Preprocessor(CONFIG)
-twice_preprocessor = TwiceAugmentedPreprocessor(first_config=TWICE_CONFIG, second_config=CONFIG)
+twice_preprocessor = SelfEnsemblingPreprocessor(first_config=TWICE_CONFIG, second_config=CONFIG)
 
 paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
-target_paths = paths_and_labels['target']['train']['paths'] + paths_and_labels['target']['test']['paths']
-target_labels = paths_and_labels['target']['train']['labels'] + paths_and_labels['target']['test']['labels']
-source_paths = paths_and_labels['source']['train']['paths'] + paths_and_labels['source']['test']['paths']
-source_labels = paths_and_labels['source']['train']['labels'] + paths_and_labels['source']['test']['labels']
 train_dataset = iter(make_dataset(
-    source_paths=source_paths,
-    source_labels=source_labels,
+    source_paths=paths_and_labels['source']['all']['paths'],
+    source_labels=paths_and_labels['source']['all']['labels'],
     source_preprocessor=preprocessor,
-    target_paths=target_paths,
-    target_labels=target_labels,
-    target_preprocessor=twice_preprocessor,
+    target_paths=paths_and_labels['target']['all']['paths'],
+    target_labels=paths_and_labels['target']['all']['labels'],
+    target_preprocessor=preprocessor,
     batch_size=BATCH_SIZE
 ))
 
@@ -125,8 +121,8 @@ trainer = Trainer(
 trainer(train_dataset, None)
 
 test_dataset = iter(make_domain_dataset(
-    paths=target_paths,
-    labels=target_labels,
+    paths=paths_and_labels['target']['all']['paths'],
+    labels=paths_and_labels['target']['all']['labels'],
     preprocessor=preprocessor,
     batch_size=BATCH_SIZE,
 ))
