@@ -6,54 +6,53 @@ from .common import ClassificationLoss
 class SourceTrainStep:
     def __init__(
         self, build_backbone_lambda, build_top_lambda, domains, freeze_backbone_flag, backbone_training_flag,
-        learning_rate
+        learning_rate, batch_size
     ):
         self.n_sources = len(domains) - 1
         self.domains = domains
         self.backbone_training_flag = backbone_training_flag
-        self.iteration = tf.Variable(0, name='iteration')
+        self.batch_size = batch_size
+        self.iteration = tf.Variable(
+            0, name='iteration', dtype=tf.int64, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
+        )
         self.models = self._init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag)
         self.losses = self._init_losses()
         self.metrics = self._init_metrics()
         self.optimizers = self._init_optimizers(learning_rate)
 
-    @tf.function
     def train(self, batch):
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
             source_top_features = tuple(
-                self.models['backbone'](batch[i][0], training=self.backbone_training_flag)
+                self.models['backbone'](batch[i]['image'], training=self.backbone_training_flag)
                 for i in range(self.n_sources)
             )
             source_predictions = tuple(
-                self.models['top'](source_top_features[i], training=True)
-                for i in range(self.n_sources)
+                self.models['top'](source_top_features[i], training=True) for i in range(self.n_sources)
             )
-            loss = self.losses['classification'](tuple(zip(*batch[:self.n_sources]))[1], source_predictions)
+            loss = self.losses['classification'](
+                tuple(batch[i]['label'] for i in range(self.n_sources)), source_predictions
+            )
+            reduced_loss = tf.nn.compute_average_loss(loss, global_batch_size=self.batch_size)
 
         trainable_variables = self.models['backbone'].trainable_variables + self.models['top'].trainable_variables
-        self.optimizers['optimizer'].apply_gradients(zip(tape.gradient(loss, trainable_variables), trainable_variables))
+        self.optimizers['optimizer'].apply_gradients(zip(
+            tape.gradient(reduced_loss, trainable_variables), trainable_variables
+        ))
 
         self.metrics['scce'].update_state(loss)
-        target_top_features = self.models['backbone'](batch[-1][0], training=False)
+        target_top_features = self.models['backbone'](batch[-1]['image'], training=False)
         target_predictions = self.models['top'](target_top_features, training=False)
-        self.metrics['target_acc'].update_state(batch[-1][1], target_predictions)
+        self.metrics['target_acc'].update_state(batch[-1]['label'], target_predictions)
         for i in range(self.n_sources):
-            self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i][1], source_predictions[i])
+            self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i]['label'], source_predictions[i])
 
-    @tf.function
     def validate(self, batch):
-        top_features = tuple(
-            self.models['backbone'](batch[i][0], training=False)
-            for i in range(self.n_sources)
-        )
-        predictions = tuple(
-            self.models['top'](top_features[i], training=True)
-            for i in range(self.n_sources)
-        )
+        top_features = tuple(self.models['backbone'](batch[i]['image'], training=False) for i in range(self.n_sources))
+        predictions = tuple(self.models['top'](top_features[i], training=True) for i in range(self.n_sources))
         for i in range(self.n_sources):
-            self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i][1], predictions[i])
+            self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i]['label'], predictions[i])
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag):
@@ -98,9 +97,9 @@ class SourceTestStep:
     @tf.function
     def test(self, batch):
         self.iteration.assign_add(1)
-        top_features = self.models['backbone'](batch[0], training=False)
+        top_features = self.models['backbone'](batch['image'], training=False)
         predictions = self.models['top'](top_features, training=False)
-        self.metrics['acc'].update_state(batch[1], predictions)
+        self.metrics['acc'].update_state(batch['label'], predictions)
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_model_lambda):

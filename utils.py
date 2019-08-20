@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 import tensorflow as tf
+from functools import partial
 from datetime import datetime
 
 
@@ -52,81 +53,38 @@ def read_domain_paths_and_labels(path, domain, phase):
     return paths, labels
 
 
-def read_paths_and_labels(path, domains):
-    print('source:')
-    paths_and_labels = {
-        'source': {
-            'train': {
-                'labels': [],
-                'paths': []
-            },
-            'test': {
-                'labels': [],
-                'paths': []
-            },
-            'all': {
-                'labels': [],
-                'paths': []
-            }
-        },
-        'target': {
-            'train': {
-                'labels': [],
-                'paths': []
-            },
-            'test': {
-                'labels': [],
-                'paths': []
-            },
-            'all': {
-                'labels': [],
-                'paths': []
-            }
-        }
-    }
-    for i in range(len(domains) - 1):
-        for phase in ('train', 'test'):
-            paths, labels = read_domain_paths_and_labels(path, domains[i], phase)
-            paths_and_labels['source'][phase]['paths'].append(paths)
-            paths_and_labels['source'][phase]['labels'].append(labels)
-    for i in range(len(domains) - 1):
-        paths_and_labels['source']['all']['paths'].append(
-            paths_and_labels['source']['train']['paths'][i] + paths_and_labels['source']['test']['paths'][i]
-        )
-        paths_and_labels['source']['all']['labels'].append(
-            paths_and_labels['source']['train']['labels'][i] + paths_and_labels['source']['test']['labels'][i]
-        )
-    print('target:')
-    for phase in ('train', 'test'):
-        paths, labels = read_domain_paths_and_labels(path, domains[-1], phase)
-        paths_and_labels['target'][phase]['paths'] = paths
-        paths_and_labels['target'][phase]['labels'] = labels
-    paths_and_labels['target']['all']['paths'] = paths_and_labels['target']['train']['paths'] + \
-        paths_and_labels['target']['test']['paths']
-    paths_and_labels['target']['all']['labels'] = paths_and_labels['target']['train']['labels'] + \
-        paths_and_labels['target']['test']['labels']
-    return paths_and_labels
-
-
 @tf.function
-def decode_image(path):
-    raw = tf.io.read_file(path)
-    if tf.image.is_jpeg(raw):
-        image = tf.image.decode_jpeg(raw, channels=3)
+def decode_image(image_bytes):
+    if tf.image.is_jpeg(image_bytes):
+        image = tf.image.decode_jpeg(image_bytes, channels=3)
     else:
-        image = tf.image.decode_png(raw, channels=3)
+        image = tf.image.decode_png(image_bytes, channels=3)
     return tf.cast(image, tf.float32)
 
 
-def make_domain_dataset(paths, labels, preprocessor, batch_size):
-    return tf.data.Dataset.zip((
-        tf.data.Dataset.from_tensor_slices(paths),
-        tf.data.Dataset.from_tensor_slices(labels)
-    )).shuffle(
-        23456
+def parse_example(example, preprocessor):
+    feature = {
+        'image': tf.io.FixedLenFeature((), tf.string),
+        'label': tf.io.FixedLenFeature((), tf.int64),
+        'path': tf.io.FixedLenFeature((), tf.string)
+    }
+    data = tf.io.parse_single_example(example, feature)
+    data['image'] = preprocessor(decode_image(data['image']))
+    return data
+
+
+def make_domain_dataset(path, preprocessor, batch_size):
+    return tf.data.Dataset.list_files(
+        os.path.join(path, '*')
+    ).interleave(
+        tf.data.TFRecordDataset,
+        cycle_length=tf.data.experimental.AUTOTUNE,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
     ).map(
-        lambda path, label: (preprocessor(decode_image(path)), label),
-        tf.data.experimental.AUTOTUNE
+        partial(parse_example, preprocessor=preprocessor),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+    ).shuffle(
+        100
     ).batch(
         batch_size
     ).prefetch(
@@ -134,16 +92,34 @@ def make_domain_dataset(paths, labels, preprocessor, batch_size):
     )
 
 
-def make_dataset(
-    source_paths, source_labels, source_preprocessor,
-    target_paths, target_labels, target_preprocessor,
-    batch_size
-):
+def make_dataset(source_path, source_preprocessor, target_path, target_preprocessor, domains, batch_size):
     datasets = []
-    for paths, labels in zip(source_paths, source_labels):
-        datasets.append(make_domain_dataset(paths, labels, source_preprocessor, batch_size))
-    datasets.append(make_domain_dataset(target_paths, target_labels, target_preprocessor, batch_size))
-    return tf.data.Dataset.zip(tuple(datasets)).repeat()
+    for domain in domains[:-1]:
+        datasets.append(make_domain_dataset(
+            path=os.path.join(source_path, domain),
+            preprocessor=source_preprocessor,
+            batch_size=batch_size
+        ).repeat())
+    datasets.append(make_domain_dataset(
+        path=target_path,
+        preprocessor=target_preprocessor,
+        batch_size=batch_size
+    ).repeat())
+    return tf.data.Dataset.zip(tuple(datasets))
+
+
+def link_tfrecords(in_path, out_path, domains):
+    os.makedirs(out_path, exist_ok=True)
+    for file_name in os.listdir(in_path):
+        domain = file_name.split('_')[0]
+        phase = file_name.split('_')[1]
+        split = 'target' if domain == domains[-1] else 'source'
+        for all_phase in (phase, 'all'):
+            path = os.path.join(out_path, split, all_phase)
+            if split == 'source':
+                path = os.path.join(path, domain)
+            os.makedirs(path, exist_ok=True)
+            os.system(f'ln -s {os.path.join(in_path, file_name)} {path}')
 
 
 def get_time_string():
@@ -151,5 +127,5 @@ def get_time_string():
 
 
 def copy_runner(file, path):
-    os.makedirs(path)
+    os.makedirs(path, exist_ok=True)
     shutil.copy(os.path.realpath(file), path)

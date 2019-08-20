@@ -38,7 +38,7 @@ def build_backbone(name, size):
 
 class ClassificationLoss:
     def __init__(self):
-        self.scorer = tf.keras.losses.SparseCategoricalCrossentropy()
+        self.scorer = tf.keras.losses.SparseCategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
 
     def __call__(self, labels, predictions):
         loss = .0

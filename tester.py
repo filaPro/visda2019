@@ -5,25 +5,22 @@ from utils import get_time_string
 
 
 class Tester:
-    def __init__(self, test_step, log_path):
+    def __init__(self, build_test_step_lambda, log_path):
         """
         :param test_step: requires `.iteration`, `.metrics`, `.test(batch)`
         """
-        self.test_step = test_step
+        self.build_test_step_lambda = build_test_step_lambda
         self.log_path = os.path.join(log_path, 'log.txt')
-        checkpoint = tf.train.Checkpoint(**test_step.models)
-        checkpoint_path = os.path.join(log_path, 'checkpoint')
-        checkpoint.restore(tf.train.latest_checkpoint(checkpoint_path))
+        self.checkpoint_path = os.path.join(log_path, 'checkpoint')
 
     def __call__(self, dataset):
-        """
-        :param dataset: `.__call__` returns batch
-        """
+        test_step = self.build_test_step_lambda()
+        tf.train.Checkpoint(**test_step.models).restore(tf.train.latest_checkpoint(self.checkpoint_path))
         for batch in dataset:
-            iteration = self.test_step.iteration.numpy()
-            self.test_step.test(batch)
+            iteration = test_step.iteration.numpy()
+            test_step.test(batch)
             string = f'\riteration: {iteration + 1}'
-            for name, metric in self.test_step.metrics.items():
+            for name, metric in test_step.metrics.items():
                 string += f', {name}: {metric.result().numpy():.5e}'
             print(string, end='')
         print()
