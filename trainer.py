@@ -7,7 +7,7 @@ from utils import get_time_string
 class Trainer:
     def __init__(
         self, build_train_step_lambda, n_epochs, n_train_iterations, n_validate_iterations,
-        log_path, restore_model_flag, restore_optimizer_flag
+        log_path, restore_model_flag, restore_optimizer_flag, single_gpu_flag
     ):
         """
         :param build_train_step_lambda: requires `.iteration`, `.metrics`, `.losses`, `.optimizers`, `.train(batch)`,
@@ -19,11 +19,12 @@ class Trainer:
         self.n_validate_iterations = n_validate_iterations
         self.restore_model_flag = restore_model_flag
         self.restore_optimizer_flag = restore_optimizer_flag
+        self.single_gpu_flag = single_gpu_flag
         self.log_path = os.path.join(log_path, 'log.txt')
         self.checkpoint_path = os.path.join(log_path, 'checkpoint')
 
     def __call__(self, train_dataset, validate_dataset):
-        strategy = tf.distribute.MirroredStrategy()
+        strategy = self._get_strategy(self.single_gpu_flag)
         print(f'n_devices in strategy: {strategy.num_replicas_in_sync}')
         train_dataset = self._distribute(train_dataset, strategy)
         validate_dataset = self._distribute(validate_dataset, strategy)
@@ -50,7 +51,7 @@ class Trainer:
                     train_step_lambda(next(train_dataset))
                     string = f'\riteration: {iteration + 1}'
                     for name, metric in train_step.metrics.items():
-                        if 'val_' not in name :
+                        if 'val_' not in name:
                             string += f', {name}: {metric.result().numpy():.5e}'
                     print(string, end='')
                 print()
@@ -75,16 +76,22 @@ class Trainer:
                 print(f'iteration: {iteration + 1}, save: {checkpoint_path}')
 
     @staticmethod
+    def _get_strategy(single_gpu_flag):
+        if single_gpu_flag:
+            return tf.distribute.OneDeviceStrategy('/gpu:0')
+        return tf.distribute.MirroredStrategy()
+
+    @staticmethod
     def _distribute(dataset, strategy):
         if dataset:
             return iter(strategy.experimental_distribute_dataset(dataset))
 
     @staticmethod
     def _restore(models, optimizers, model_flag, optimizer_flag, path):
-        if model_flag and optimizer_flag:
-            objects = {}
-            if model_flag:
-                objects.update(models)
-            if optimizer_flag:
-                objects.update(optimizers)
+        objects = {}
+        if model_flag:
+            objects.update(models)
+        if optimizer_flag:
+            objects.update(optimizers)
+        if objects:
             tf.train.Checkpoint(**objects).restore(tf.train.latest_checkpoint(path))

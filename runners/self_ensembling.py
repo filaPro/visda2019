@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 from functools import partial
 
@@ -5,11 +6,11 @@ from trainer import Trainer
 from tester import Tester
 from models import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
-    DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
+    DOMAINS, N_CLASSES, make_dataset, make_domain_dataset, get_time_string, copy_runner
 )
 from preprocessor import Preprocessor
 
-RAW_DATA_PATH = '/content/data/raw'
+DATA_PATH = '/content/data/tfrecords_links'
 LOG_PATH = f'/content/data/logs/{get_time_string()}-self-ensembling'
 BATCH_SIZE = 4
 IMAGE_SIZE = 224
@@ -42,93 +43,47 @@ build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_S
 preprocessor = Preprocessor(CONFIG)
 twice_preprocessor = SelfEnsemblingPreprocessor(first_config=TWICE_CONFIG, second_config=CONFIG)
 
-paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
-train_dataset = iter(make_dataset(
-    source_paths=paths_and_labels['source']['all']['paths'],
-    source_labels=paths_and_labels['source']['all']['labels'],
+train_dataset = make_dataset(
+    source_path=os.path.join(DATA_PATH, 'source', 'all'),
     source_preprocessor=preprocessor,
-    target_paths=paths_and_labels['target']['all']['paths'],
-    target_labels=paths_and_labels['target']['all']['labels'],
-    target_preprocessor=preprocessor,
+    target_path=os.path.join(DATA_PATH, 'target', 'all'),
+    target_preprocessor=twice_preprocessor,
+    domains=DOMAINS,
     batch_size=BATCH_SIZE
-))
+)
 
-train_step = SelfEnsemblingTrainStep(
-    build_backbone_lambda=build_backbone_lambda,
-    build_top_lambda=build_top_lambda,
-    domains=DOMAINS,
-    freeze_backbone_flag=True,
-    backbone_training_flag=False,
-    learning_rate=.001,
-    loss_weight=10.,
-    decay=.99
-)
-trainer = Trainer(
-    train_step=train_step,
-    n_iterations=1000,
-    n_log_iterations=100,
-    n_save_iterations=1000,
-    n_validate_iterations=0,
-    log_path=LOG_PATH,
-    restore_model_flag=False,
-    restore_optimizer_flag=False
-)
 copy_runner(__file__, LOG_PATH)
-trainer(train_dataset, None)
-
-train_step = SelfEnsemblingTrainStep(
+build_train_step_lambda = partial(
+    SelfEnsemblingTrainStep,
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda,
     domains=DOMAINS,
-    freeze_backbone_flag=False,
     backbone_training_flag=False,
-    learning_rate=.0001,
-    loss_weight=10.,
-    decay=.999
+    top_learning_rate=.00001,
+    backbone_learning_rate=.00001,
+    loss_weight=1.,
+    decay=.99,
+    batch_size=BATCH_SIZE
 )
-trainer = Trainer(
-    train_step=train_step,
-    n_iterations=5000,
-    n_log_iterations=100,
-    n_save_iterations=5000,
+Trainer(
+    build_train_step_lambda,
+    n_epochs=5,
+    n_train_iterations=1000,
     n_validate_iterations=0,
     log_path=LOG_PATH,
     restore_model_flag=True,
-    restore_optimizer_flag=False
-)
-trainer(train_dataset, None)
+    restore_optimizer_flag=False,
+    single_gpu_flag=True
+)(train_dataset, None)
 
-train_step = SelfEnsemblingTrainStep(
-    build_backbone_lambda=build_backbone_lambda,
-    build_top_lambda=build_top_lambda,
-    domains=DOMAINS,
-    freeze_backbone_flag=False,
-    backbone_training_flag=False,
-    learning_rate=.00001,
-    loss_weight=10.,
-    decay=.9999
-)
-trainer = Trainer(
-    train_step=train_step,
-    n_iterations=5000,
-    n_log_iterations=100,
-    n_save_iterations=5000,
-    n_validate_iterations=0,
-    log_path=LOG_PATH,
-    restore_model_flag=True,
-    restore_optimizer_flag=False
-)
-trainer(train_dataset, None)
-
-test_dataset = iter(make_domain_dataset(
-    paths=paths_and_labels['target']['all']['paths'],
-    labels=paths_and_labels['target']['all']['labels'],
+test_dataset = make_domain_dataset(
+    path=os.path.join(DATA_PATH, 'target', 'all'),
     preprocessor=preprocessor,
-    batch_size=BATCH_SIZE,
-))
-test_step = SelfEnsemblingTestStep(
+    batch_size=BATCH_SIZE
+)
+build_test_step_lambda = partial(
+    SelfEnsemblingTestStep,
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda
 )
-tester = Tester(test_step=test_step, log_path=LOG_PATH)
-tester(test_dataset)
+Tester(build_test_step_lambda=build_test_step_lambda, log_path=LOG_PATH)(test_dataset)

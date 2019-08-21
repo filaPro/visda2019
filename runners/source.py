@@ -24,8 +24,11 @@ CONFIG = [
 def build_top(n_classes):
     return tf.keras.Sequential([
         tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
-        tf.keras.layers.Dense(4096, activation='relu'),
-        tf.keras.layers.Dense(n_classes, input_shape=(4096,), activation='softmax')
+        tf.keras.layers.Dense(2048, activation='relu'),
+        tf.keras.layers.Dropout(.2),
+        tf.keras.layers.Dense(2048, activation='relu'),
+        tf.keras.layers.Dropout(.2),
+        tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 
 
@@ -50,6 +53,7 @@ validate_dataset = make_dataset(
     batch_size=BATCH_SIZE
 )
 
+copy_runner(__file__, LOG_PATH)
 build_train_step_lambda = partial(
     SourceTrainStep,
     build_backbone_lambda=build_backbone_lambda,
@@ -60,17 +64,16 @@ build_train_step_lambda = partial(
     learning_rate=.001,
     batch_size=BATCH_SIZE
 )
-trainer = Trainer(
+Trainer(
     build_train_step_lambda=build_train_step_lambda,
     n_epochs=1,
     n_train_iterations=500,
     n_validate_iterations=50,
     log_path=LOG_PATH,
     restore_model_flag=False,
-    restore_optimizer_flag=False
-)
-copy_runner(__file__, LOG_PATH)
-trainer(train_dataset, validate_dataset)
+    restore_optimizer_flag=False,
+    single_gpu_flag=False
+)(train_dataset, validate_dataset)
 
 build_train_step_lambda = partial(
     SourceTrainStep,
@@ -82,16 +85,16 @@ build_train_step_lambda = partial(
     learning_rate=.001,
     batch_size=BATCH_SIZE
 )
-trainer = Trainer(
+Trainer(
     build_train_step_lambda=build_train_step_lambda,
     n_epochs=1,
     n_train_iterations=500,
     n_validate_iterations=50,
     log_path=LOG_PATH,
     restore_model_flag=True,
-    restore_optimizer_flag=True
-)
-trainer(train_dataset, validate_dataset)
+    restore_optimizer_flag=True,
+    single_gpu_flag=False
+)(train_dataset, validate_dataset)
 
 test_dataset = make_domain_dataset(
     path=os.path.join(DATA_PATH, 'target', 'all'),
@@ -103,5 +106,4 @@ build_test_step_lambda = partial(
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda
 )
-tester = Tester(build_test_step_lambda=build_test_step_lambda, log_path=LOG_PATH)
-tester(test_dataset)
+Tester(build_test_step_lambda=build_test_step_lambda, log_path=LOG_PATH)(test_dataset)
