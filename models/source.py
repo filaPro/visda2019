@@ -34,11 +34,11 @@ class SourceTrainStep:
             loss = self.losses['classification'](
                 tuple(batch[i]['label'] for i in range(self.n_sources)), source_predictions
             )
-            reduced_loss = tf.nn.compute_average_loss(loss, global_batch_size=self.batch_size)
+            loss /= self.batch_size
 
         trainable_variables = self.models['backbone'].trainable_variables + self.models['top'].trainable_variables
         self.optimizers['optimizer'].apply_gradients(zip(
-            tape.gradient(reduced_loss, trainable_variables), trainable_variables
+            tape.gradient(loss, trainable_variables), trainable_variables
         ))
 
         self.metrics['scce'].update_state(loss)
@@ -47,12 +47,6 @@ class SourceTrainStep:
         self.metrics['target_acc'].update_state(batch[-1]['label'], target_predictions)
         for i in range(self.n_sources):
             self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i]['label'], source_predictions[i])
-
-    def validate(self, batch):
-        top_features = tuple(self.models['backbone'](batch[i]['image'], training=False) for i in range(self.n_sources))
-        predictions = tuple(self.models['top'](top_features[i], training=True) for i in range(self.n_sources))
-        for i in range(self.n_sources):
-            self.metrics[f'{self.domains[i]}_val_acc'].update_state(batch[i]['label'], predictions[i])
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag):
@@ -78,7 +72,6 @@ class SourceTrainStep:
         }
         for i in range(self.n_sources):
             metrics[f'{self.domains[i]}_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
-            metrics[f'{self.domains[i]}_val_acc'] = tf.keras.metrics.SparseCategoricalAccuracy()
         return metrics
 
     @staticmethod

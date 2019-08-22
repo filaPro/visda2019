@@ -5,7 +5,7 @@ import efficientnet.tfkeras as efficient_net
 def get_backbone(name):
     if name == 'vgg19':
         backbone = tf.keras.applications.VGG19
-    elif name == 'mobilenet_v2':
+    elif name == 'mobile_net_v2':
         backbone = tf.keras.applications.MobileNetV2
     elif name == 'efficient_net_b0':
         backbone = efficient_net.EfficientNetB0

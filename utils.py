@@ -73,39 +73,34 @@ def parse_example(example, preprocessor):
     return data
 
 
-def make_domain_dataset(path, preprocessor, batch_size):
+def make_domain_dataset(path, preprocessor, n_processes):
     return tf.data.Dataset.list_files(
         os.path.join(path, '*')
     ).interleave(
         tf.data.TFRecordDataset,
-        cycle_length=tf.data.experimental.AUTOTUNE,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE
+        cycle_length=n_processes,
+        num_parallel_calls=n_processes
     ).map(
         partial(parse_example, preprocessor=preprocessor),
-        num_parallel_calls=tf.data.experimental.AUTOTUNE
-    ).shuffle(
-        100
-    ).batch(
-        batch_size
-    ).prefetch(
-        tf.data.experimental.AUTOTUNE
+        num_parallel_calls=n_processes
     )
 
 
-def make_dataset(source_path, source_preprocessor, target_path, target_preprocessor, domains, batch_size):
+def make_dataset(source_path, source_preprocessor, target_path, target_preprocessor, domains, batch_size, n_processes):
+    buffer_size = 128
     datasets = []
     for domain in domains[:-1]:
         datasets.append(make_domain_dataset(
             path=os.path.join(source_path, domain),
             preprocessor=source_preprocessor,
-            batch_size=batch_size
-        ).repeat())
+            n_processes=n_processes
+        ).repeat().shuffle(buffer_size))
     datasets.append(make_domain_dataset(
         path=target_path,
         preprocessor=target_preprocessor,
-        batch_size=batch_size
-    ).repeat())
-    return tf.data.Dataset.zip(tuple(datasets))
+        n_processes=n_processes
+    ).repeat().shuffle(buffer_size))
+    return tf.data.Dataset.zip(tuple(datasets)).batch(batch_size).prefetch(buffer_size)
 
 
 def link_tfrecords(in_path, out_path, domains):

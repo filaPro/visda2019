@@ -14,6 +14,7 @@ DATA_PATH = '/content/data/tfrecords_links'
 LOG_PATH = f'/content/data/logs/{get_time_string()}-self-ensembling'
 BATCH_SIZE = 4
 IMAGE_SIZE = 224
+N_PROCESSES = 16
 BACKBONE_NAME = 'efficient_net_b5'
 CONFIG = [
     {'method': 'keras', 'mode': 'torch'},
@@ -49,7 +50,8 @@ train_dataset = make_dataset(
     target_path=os.path.join(DATA_PATH, 'target', 'all'),
     target_preprocessor=twice_preprocessor,
     domains=DOMAINS,
-    batch_size=BATCH_SIZE
+    batch_size=BATCH_SIZE,
+    n_processes=N_PROCESSES
 )
 
 copy_runner(__file__, LOG_PATH)
@@ -59,7 +61,7 @@ build_train_step_lambda = partial(
     build_top_lambda=build_top_lambda,
     domains=DOMAINS,
     backbone_training_flag=False,
-    top_learning_rate=.00001,
+    top_learning_rate=.0001,
     backbone_learning_rate=.00001,
     loss_weight=1.,
     decay=.99,
@@ -68,19 +70,18 @@ build_train_step_lambda = partial(
 Trainer(
     build_train_step_lambda,
     n_epochs=5,
-    n_train_iterations=1000,
-    n_validate_iterations=0,
+    n_train_iterations=100,
     log_path=LOG_PATH,
     restore_model_flag=True,
     restore_optimizer_flag=False,
     single_gpu_flag=True
-)(train_dataset, None)
+)(train_dataset)
 
 test_dataset = make_domain_dataset(
     path=os.path.join(DATA_PATH, 'target', 'all'),
     preprocessor=preprocessor,
-    batch_size=BATCH_SIZE
-)
+    n_processes=N_PROCESSES
+).batch(BATCH_SIZE)
 build_test_step_lambda = partial(
     SelfEnsemblingTestStep,
     build_backbone_lambda=build_backbone_lambda,

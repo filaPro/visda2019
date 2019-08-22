@@ -14,7 +14,8 @@ DATA_PATH = '/content/data/tfrecords_links'
 LOG_PATH = f'/content/data/logs/{get_time_string()}-source'
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-BACKBONE_NAME = 'mobilenet_v2'
+N_PROCESSES = 16
+BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
     {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE}
@@ -37,20 +38,13 @@ build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_S
 preprocessor = Preprocessor(CONFIG)
 
 train_dataset = make_dataset(
-    source_path=os.path.join(DATA_PATH, 'source', 'train'),
+    source_path=os.path.join(DATA_PATH, 'source', 'all'),
     source_preprocessor=preprocessor,
     target_path=os.path.join(DATA_PATH, 'target', 'all'),
     target_preprocessor=preprocessor,
     domains=DOMAINS,
-    batch_size=BATCH_SIZE
-)
-validate_dataset = make_dataset(
-    source_path=os.path.join(DATA_PATH, 'source', 'test'),
-    source_preprocessor=preprocessor,
-    target_path=os.path.join(DATA_PATH, 'target', 'all'),
-    target_preprocessor=preprocessor,
-    domains=DOMAINS,
-    batch_size=BATCH_SIZE
+    batch_size=BATCH_SIZE,
+    n_processes=N_PROCESSES
 )
 
 copy_runner(__file__, LOG_PATH)
@@ -68,12 +62,11 @@ Trainer(
     build_train_step_lambda=build_train_step_lambda,
     n_epochs=1,
     n_train_iterations=500,
-    n_validate_iterations=50,
     log_path=LOG_PATH,
     restore_model_flag=False,
     restore_optimizer_flag=False,
     single_gpu_flag=False
-)(train_dataset, validate_dataset)
+)(train_dataset)
 
 build_train_step_lambda = partial(
     SourceTrainStep,
@@ -89,18 +82,17 @@ Trainer(
     build_train_step_lambda=build_train_step_lambda,
     n_epochs=1,
     n_train_iterations=500,
-    n_validate_iterations=50,
     log_path=LOG_PATH,
     restore_model_flag=True,
     restore_optimizer_flag=True,
     single_gpu_flag=False
-)(train_dataset, validate_dataset)
+)(train_dataset)
 
 test_dataset = make_domain_dataset(
     path=os.path.join(DATA_PATH, 'target', 'all'),
     preprocessor=preprocessor,
-    batch_size=BATCH_SIZE
-)
+    n_processes=N_PROCESSES
+).batch(BATCH_SIZE)
 build_test_step_lambda = partial(
     SourceTestStep,
     build_backbone_lambda=build_backbone_lambda,

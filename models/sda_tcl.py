@@ -20,9 +20,31 @@ class Centers(tf.keras.layers.Layer):
 
 
 class SdaTclTrainStep:
-    def __init__(self, build_backbone_lambda, build_bottom_lambda):
-        pass
+    def __init__(
+        self, build_backbone_lambda, build_bottom_lambda, build_discriminator_lambda, domains, backbone_training_flag,
+        backbone_learning_rate, bottom_learning_rate, loss_weight, batch_size
+    ):
+        self.n_sources = len(domains) - 1
+        self.domains = domains
+        self.backbone_training_flag = backbone_training_flag
+        self.loss_weight = loss_weight
+        self.batch_size = batch_size
+        self.iteration = tf.Variable(
+            0, name='iteration', dtype=tf.int64, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
+        )
+        self.models = self._init_models(build_backbone_lambda, build_bottom_lambda)
+        self.losses = self._init_losses()
+        self.metrics = self._init_metrics()
+        self.optimizers = self._init_optimizers(backbone_learning_rate, bottom_learning_rate)
 
-    @tf.function
     def train(self, batch):
         pass
+
+    @staticmethod
+    def _init_models(build_backbone_lambda, build_bottom_lambda, build_discriminator_lambda):
+        models = {
+            'backbone': build_backbone_lambda(),
+            'bottom': build_bottom_lambda(),
+            'discriminator': build_discriminator_lambda()
+        }
+        return models
