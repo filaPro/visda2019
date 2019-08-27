@@ -31,15 +31,12 @@ class MixMatchTrainStep:
             )
 
         with tf.GradientTape() as backbone_tape, tf.GradientTape() as top_tape:
-            mixed_source_features = self.models['backbone'](mixed_source_images, training=True)
-            mixed_source_predictions = self.models['top'](mixed_source_features, training=True)
-            mixed_first_target_features = self.models['backbone'](mixed_first_target_images, training=True)
-            mixed_first_target_predictions = self.models['top'](mixed_first_target_features, training=True)
-            mixed_second_target_features = self.models['backbone'](mixed_second_target_images, training=True)
-            mixed_second_target_predictions = self.models['top'](mixed_second_target_features, training=True)
-            source_loss = self.losses['source'](mixed_source_labels, mixed_source_predictions)
-            first_target_loss = self.losses['target'](mixed_first_target_labels, mixed_first_target_predictions)
-            second_target_loss = self.losses['target'](mixed_second_target_labels, mixed_second_target_predictions)
+            source_predictions, first_target_predictions, second_target_predictions = self._run_balanced(
+                (mixed_source_images, mixed_first_target_images, mixed_second_target_images)
+            )
+            source_loss = self.losses['source'](mixed_source_labels, source_predictions)
+            first_target_loss = self.losses['target'](mixed_first_target_labels, first_target_predictions)
+            second_target_loss = self.losses['target'](mixed_second_target_labels, second_target_predictions)
             target_loss = (first_target_loss + second_target_loss) * .5
             loss = (source_loss + target_loss * self.loss_weight) / self.global_batch_size
 
@@ -74,22 +71,36 @@ class MixMatchTrainStep:
         shuffled_images = tf.gather(combined_images, shuffled_indexes)
         shuffled_labels = tf.gather(combined_labels, shuffled_indexes)
 
-        mixed_images = []
-        mixed_labels = []
+        mixed_images, mixed_labels = self._mix_up(
+            first_images=combined_images,
+            first_labels=combined_labels,
+            second_images=shuffled_images,
+            second_labels=shuffled_labels,
+            alpha=self.alpha,
+            batch_size=self.local_batch_size * 3
+        )
+        splitted_images = tf.split(mixed_images, 3)
+        splitted_labels = tf.split(mixed_labels, 3)
+        return (
+            splitted_images[0], splitted_labels[0],
+            splitted_images[1], splitted_labels[1],
+            splitted_images[2], splitted_labels[2]
+        )
+
+    def _run_balanced(self, images):
+        splitted_images = tuple(tf.split(images[i], 3) for i in range(3))
+        predictions = []
         for i in range(3):
-            begin = i * self.local_batch_size
-            end = (i + 1) * self.local_batch_size
-            images, labels = self._mix_up(
-                first_images=combined_images[begin:end],
-                first_labels=combined_labels[begin:end],
-                second_images=shuffled_images[begin:end],
-                second_labels=shuffled_labels[begin:end],
-                alpha=self.alpha,
-                batch_size=self.local_batch_size
-            )
-            mixed_images.append(images)
-            mixed_labels.append(labels)
-        return mixed_images[0], mixed_labels[0], mixed_images[1], mixed_labels[1], mixed_images[2], mixed_labels[2]
+            combined_images = tf.concat(tuple(splitted_images[j][i] for j in range(3)), axis=0)
+            features = self.models['backbone'](combined_images, training=True)
+            predictions.append(self.models['top'](features, training=True))
+        splitted_predictions = tuple(tf.split(predictions[i], 3) for i in range(3))
+        combined_predictions = []
+        for i in range(3):
+            combined_predictions.append(tf.concat(tuple(splitted_predictions[j][i] for j in range(3)), axis=0))
+        return tuple(combined_predictions)
+
+
 
     @staticmethod
     def _sharpen(x, temperature):

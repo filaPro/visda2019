@@ -11,8 +11,7 @@ from utils import (
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data/tfrecords_links'
-# LOG_PATH = f'/content/data/logs/{get_time_string()}-mix-match' TODO: <-
-LOG_PATH = f'/content/data/logs/tmp-mix-match'
+LOG_PATH = f'/content/data/logs/{get_time_string()}-mix-match'
 LOCAL_BATCH_SIZE = 9
 N_GPUS = 1
 IMAGE_SIZE = 224
@@ -60,7 +59,7 @@ build_train_step_lambda = partial(
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda,
     backbone_learning_rate=.0001,
-    top_learning_rate=.001,
+    top_learning_rate=.0001,
     loss_weight=1000.,
     temperature=.5,
     alpha=.75,
@@ -72,7 +71,7 @@ Trainer(
     n_epochs=1000,
     n_train_iterations=1000,
     log_path=LOG_PATH,
-    restore_model_flag=True,
+    restore_model_flag=False,
     restore_optimizer_flag=False,
     single_gpu_flag=N_GPUS == 1
 )(train_dataset)

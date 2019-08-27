@@ -104,7 +104,7 @@ def make_dataset(
         preprocessor=target_preprocessor,
         n_processes=n_processes
     ).repeat().shuffle(buffer_size).batch(target_batch_size))
-    return tf.data.Dataset.zip(tuple(datasets)).prefetch(buffer_size)
+    return tf.data.Dataset.zip(tuple(datasets)).prefetch(n_processes)
 
 
 def link_tfrecords(in_path, out_path, domains):
