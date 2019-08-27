@@ -11,8 +11,10 @@ from utils import (
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data/tfrecords_links'
-LOG_PATH = f'/content/data/logs/{get_time_string()}-mix-match'
-BATCH_SIZE = 9
+# LOG_PATH = f'/content/data/logs/{get_time_string()}-mix-match' TODO: <-
+LOG_PATH = f'/content/data/logs/tmp-mix-match'
+LOCAL_BATCH_SIZE = 9
+N_GPUS = 1
 IMAGE_SIZE = 224
 N_PROCESSES = 16
 BACKBONE_NAME = 'efficient_net_b4'
@@ -39,15 +41,15 @@ def build_top(n_classes):
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 source_preprocessor = Preprocessor(COMPLEX_CONFIG)
-target_preprocessor = SelfEnsemblingPreprocessor(first_config=COMPLEX_CONFIG, second_config=CONFIG)
+target_preprocessor = SelfEnsemblingPreprocessor(first_config=COMPLEX_CONFIG, second_config=COMPLEX_CONFIG)
 
 train_dataset = make_dataset(
     source_path=os.path.join(DATA_PATH, 'source', 'all'),
     source_preprocessor=source_preprocessor,
-    source_batch_size=BATCH_SIZE // 3,
+    source_batch_size=LOCAL_BATCH_SIZE * N_GPUS // (len(DOMAINS) - 1),
     target_path=os.path.join(DATA_PATH, 'target', 'all'),
     target_preprocessor=target_preprocessor,
-    target_batch_size=BATCH_SIZE,
+    target_batch_size=LOCAL_BATCH_SIZE * N_GPUS,
     domains=DOMAINS,
     n_processes=N_PROCESSES
 )
@@ -58,18 +60,19 @@ build_train_step_lambda = partial(
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda,
     backbone_learning_rate=.0001,
-    top_learning_rate=.0001,
-    loss_weight=100.,
+    top_learning_rate=.001,
+    loss_weight=1000.,
     temperature=.5,
     alpha=.75,
-    batch_size=BATCH_SIZE
+    local_batch_size=LOCAL_BATCH_SIZE,
+    global_batch_size=LOCAL_BATCH_SIZE * N_GPUS
 )
 Trainer(
     build_train_step_lambda,
     n_epochs=1000,
     n_train_iterations=1000,
     log_path=LOG_PATH,
-    restore_model_flag=False,
+    restore_model_flag=True,
     restore_optimizer_flag=False,
-    single_gpu_flag=True
+    single_gpu_flag=N_GPUS == 1
 )(train_dataset)

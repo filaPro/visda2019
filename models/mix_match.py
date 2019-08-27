@@ -4,13 +4,14 @@ import tensorflow_probability as tfp
 
 class MixMatchTrainStep:
     def __init__(
-        self, build_backbone_lambda, build_top_lambda,
-        backbone_learning_rate, top_learning_rate, loss_weight, temperature, alpha, batch_size
+        self, build_backbone_lambda, build_top_lambda, backbone_learning_rate, top_learning_rate,
+        loss_weight, temperature, alpha, global_batch_size, local_batch_size
     ):
         self.loss_weight = loss_weight
         self.temperature = temperature
         self.alpha = alpha
-        self.batch_size = batch_size
+        self.global_batch_size = global_batch_size
+        self.local_batch_size = local_batch_size
         self.iteration = tf.Variable(
             0, name='iteration', dtype=tf.int64, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
         )
@@ -37,13 +38,10 @@ class MixMatchTrainStep:
             mixed_second_target_features = self.models['backbone'](mixed_second_target_images, training=True)
             mixed_second_target_predictions = self.models['top'](mixed_second_target_features, training=True)
             source_loss = self.losses['source'](mixed_source_labels, mixed_source_predictions)
-            source_loss /= self.batch_size
             first_target_loss = self.losses['target'](mixed_first_target_labels, mixed_first_target_predictions)
-            first_target_loss /= self.batch_size
             second_target_loss = self.losses['target'](mixed_second_target_labels, mixed_second_target_predictions)
-            second_target_loss /= self.batch_size
             target_loss = (first_target_loss + second_target_loss) * .5
-            loss = source_loss + target_loss * self.loss_weight
+            loss = (source_loss + target_loss * self.loss_weight) / self.global_batch_size
 
         backbone_trainable_variables = self.models['backbone'].trainable_variables
         top_trainable_variables = self.models['top'].trainable_variables
@@ -56,8 +54,8 @@ class MixMatchTrainStep:
 
         target_features = self.models['backbone'](batch[-1]['image'][1], training=False)
         target_predictions = self.models['top'](target_features, training=False)
-        self.metrics['source_loss'].update_state(source_loss)
-        self.metrics['target_loss'].update_state(target_loss)
+        self.metrics['source_loss'].update_state(source_loss / self.local_batch_size)
+        self.metrics['target_loss'].update_state(target_loss / self.local_batch_size)
         self.metrics['target_acc'].update_state(batch[-1]['label'], target_predictions)
 
     def _mix_match(self, source_images, source_labels, first_target_images, second_target_images):
@@ -71,7 +69,7 @@ class MixMatchTrainStep:
         combined_images = tf.concat((source_images, first_target_images, second_target_images), axis=0)
         categorical_source_labels = tf.one_hot(source_labels, tf.shape(target_predictions)[1])
         combined_labels = tf.concat((categorical_source_labels, target_predictions, target_predictions), axis=0)
-        indexes = tf.range(tf.shape(combined_images)[0])
+        indexes = tf.range(self.local_batch_size * 3)
         shuffled_indexes = tf.random.shuffle(indexes)
         shuffled_images = tf.gather(combined_images, shuffled_indexes)
         shuffled_labels = tf.gather(combined_labels, shuffled_indexes)
@@ -79,14 +77,15 @@ class MixMatchTrainStep:
         mixed_images = []
         mixed_labels = []
         for i in range(3):
-            begin = i * self.batch_size
-            end = (i + 1) * self.batch_size
+            begin = i * self.local_batch_size
+            end = (i + 1) * self.local_batch_size
             images, labels = self._mix_up(
                 first_images=combined_images[begin:end],
                 first_labels=combined_labels[begin:end],
                 second_images=shuffled_images[begin:end],
                 second_labels=shuffled_labels[begin:end],
-                alpha=self.alpha
+                alpha=self.alpha,
+                batch_size=self.local_batch_size
             )
             mixed_images.append(images)
             mixed_labels.append(labels)
@@ -98,9 +97,9 @@ class MixMatchTrainStep:
         return powered / tf.reduce_sum(powered, axis=1, keepdims=True)
 
     @staticmethod
-    def _mix_up(first_images, first_labels, second_images, second_labels, alpha):
+    def _mix_up(first_images, first_labels, second_images, second_labels, alpha, batch_size):
         distribution = tfp.distributions.Beta(alpha, alpha)
-        unbounded_decay = distribution.sample(tf.shape(first_images)[0])
+        unbounded_decay = distribution.sample(batch_size)
         decay = tf.maximum(unbounded_decay, 1. - unbounded_decay)
         image_decay = tf.reshape(decay, (-1, 1, 1, 1))
         images = first_images * image_decay + second_images * (1. - image_decay)
