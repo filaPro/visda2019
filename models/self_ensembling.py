@@ -9,7 +9,6 @@ class SelfEnsemblingPreprocessor:
         self.first_preprocessor = Preprocessor(first_config)
         self.second_preprocessor = Preprocessor(second_config)
 
-    @tf.function
     def __call__(self, image):
         return self.first_preprocessor(image), self.second_preprocessor(image)
 
@@ -49,7 +48,7 @@ class SelfEnsemblingTrainStep:
             batch[-1]['image'][1], training=self.backbone_training_flag
         )
         teacher_target_predictions = self.models['teacher_top'](teacher_target_top_features, training=True)
-        with tf.GradientTape() as tape, tf.GradientTape() as tape_backbone:
+        with tf.GradientTape() as tape, tf.GradientTape() as backbone_tape:
             source_top_features = tuple(
                 self.models['student_backbone'](batch[i]['image'], training=self.backbone_training_flag)
                 for i in range(self.n_sources)
@@ -79,7 +78,7 @@ class SelfEnsemblingTrainStep:
             self.models['student_top'].trainable_variables
         ))
         self.optimizers['backbone_optimizer'].apply_gradients(zip(
-            tape_backbone.gradient(loss, self.models['student_backbone'].trainable_variables),
+            backbone_tape.gradient(loss, self.models['student_backbone'].trainable_variables),
             self.models['student_backbone'].trainable_variables)
         )
         self.ema(teacher_trainable_variables, student_trainable_variables)
@@ -93,13 +92,12 @@ class SelfEnsemblingTrainStep:
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_top_lambda):
-        models = {
+        return {
             'student_backbone': build_backbone_lambda(),
             'student_top': build_top_lambda(),
             'teacher_backbone': build_backbone_lambda(),
             'teacher_top': build_top_lambda()
         }
-        return models
 
     @staticmethod
     def _init_losses():

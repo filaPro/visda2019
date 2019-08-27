@@ -86,7 +86,11 @@ def make_domain_dataset(path, preprocessor, n_processes):
     )
 
 
-def make_dataset(source_path, source_preprocessor, target_path, target_preprocessor, domains, batch_size, n_processes):
+def make_dataset(
+    source_path, source_preprocessor, source_batch_size,
+    target_path, target_preprocessor, target_batch_size,
+    domains, n_processes
+):
     buffer_size = 128
     datasets = []
     for domain in domains[:-1]:
@@ -94,13 +98,13 @@ def make_dataset(source_path, source_preprocessor, target_path, target_preproces
             path=os.path.join(source_path, domain),
             preprocessor=source_preprocessor,
             n_processes=n_processes
-        ).repeat().shuffle(buffer_size))
+        ).repeat().shuffle(buffer_size).batch(source_batch_size))
     datasets.append(make_domain_dataset(
         path=target_path,
         preprocessor=target_preprocessor,
         n_processes=n_processes
-    ).repeat().shuffle(buffer_size))
-    return tf.data.Dataset.zip(tuple(datasets)).batch(batch_size).prefetch(buffer_size)
+    ).repeat().shuffle(buffer_size).batch(target_batch_size))
+    return tf.data.Dataset.zip(tuple(datasets)).prefetch(buffer_size)
 
 
 def link_tfrecords(in_path, out_path, domains):

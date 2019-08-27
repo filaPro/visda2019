@@ -17,18 +17,17 @@ IMAGE_SIZE = 224
 N_PROCESSES = 16
 BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
+    {'method': 'resize', 'height': 256, 'width': 256},
+    {'method': 'random_flip_left_right'},
     {'method': 'keras', 'mode': 'tf'},
-    {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE}
+    {'method': 'random_crop', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
 ]
 
 
 def build_top(n_classes):
     return tf.keras.Sequential([
         tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
-        tf.keras.layers.Dense(2048, activation='relu'),
-        tf.keras.layers.Dropout(.2),
-        tf.keras.layers.Dense(2048, activation='relu'),
-        tf.keras.layers.Dropout(.2),
+        tf.keras.layers.Dense(512, activation='relu'),
         tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 
@@ -40,10 +39,11 @@ preprocessor = Preprocessor(CONFIG)
 train_dataset = make_dataset(
     source_path=os.path.join(DATA_PATH, 'source', 'all'),
     source_preprocessor=preprocessor,
+    source_batch_size=BATCH_SIZE,
     target_path=os.path.join(DATA_PATH, 'target', 'all'),
     target_preprocessor=preprocessor,
+    target_batch_size=BATCH_SIZE,
     domains=DOMAINS,
-    batch_size=BATCH_SIZE,
     n_processes=N_PROCESSES
 )
 
@@ -60,7 +60,7 @@ build_train_step_lambda = partial(
 )
 Trainer(
     build_train_step_lambda=build_train_step_lambda,
-    n_epochs=1,
+    n_epochs=2,
     n_train_iterations=500,
     log_path=LOG_PATH,
     restore_model_flag=False,

@@ -4,3 +4,4 @@ from .common import ClassificationLoss, get_backbone, build_backbone
 from .domain_classifier import DomainClassifierTrainStep, DomainClassifierTestStep
 from .self_ensembling import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, SelfEnsemblingPreprocessor
 from .dann import DannTrainStep, DannTestStep, GradientReverse
+from .mix_match import MixMatchTrainStep
