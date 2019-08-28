@@ -56,10 +56,10 @@ class MixMatchTrainStep:
         self.metrics['target_acc'].update_state(batch[-1]['label'], target_predictions)
 
     def _mix_match(self, source_images, source_labels, first_target_images, second_target_images):
-        first_target_features = self.models['backbone'](first_target_images, training=False)
-        second_target_features = self.models['backbone'](second_target_images, training=False)
-        first_target_predictions = self.models['top'](first_target_features, training=False)
-        second_target_predictions = self.models['top'](second_target_features, training=False)
+        first_target_features = self.models['backbone'](first_target_images, training=True)
+        second_target_features = self.models['backbone'](second_target_images, training=True)
+        first_target_predictions = self.models['top'](first_target_features, training=True)
+        second_target_predictions = self.models['top'](second_target_features, training=True)
         target_predictions = (first_target_predictions + second_target_predictions) / 2.
         target_predictions = self._sharpen(target_predictions, self.temperature)
 
@@ -99,8 +99,6 @@ class MixMatchTrainStep:
         for i in range(3):
             combined_predictions.append(tf.concat(tuple(splitted_predictions[j][i] for j in range(3)), axis=0))
         return tuple(combined_predictions)
-
-
 
     @staticmethod
     def _sharpen(x, temperature):
