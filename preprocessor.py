@@ -41,6 +41,8 @@ class Preprocessor:
                 image = tf.image.resize(image, size=(item['height'], item['width']))
             elif item['method'] == 'random_crop':
                 image = tf.image.random_crop(image, size=(item['height'], item['width'], item['n_channels']))
+            elif item['method'] == 'flip_left_right':
+                image = tf.image.flip_left_right(image)
             elif item['method'] == 'random_flip_left_right':
                 image = tf.image.random_flip_left_right(image)
             elif item['method'] == 'random_brightness':

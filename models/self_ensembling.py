@@ -5,12 +5,11 @@ from preprocessor import Preprocessor
 
 
 class SelfEnsemblingPreprocessor:
-    def __init__(self, first_config, second_config):
-        self.first_preprocessor = Preprocessor(first_config)
-        self.second_preprocessor = Preprocessor(second_config)
+    def __init__(self, configs):
+        self.preprocessors = tuple(Preprocessor(config) for config in configs)
 
     def __call__(self, image):
-        return self.first_preprocessor(image), self.second_preprocessor(image)
+        return tuple(preprocessor(image) for preprocessor in self.preprocessors)
 
 
 class ExponentialMovingAveraging:

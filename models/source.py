@@ -90,8 +90,12 @@ class SourceTestStep:
     @tf.function
     def test(self, batch):
         self.iteration.assign_add(1)
-        top_features = self.models['backbone'](batch['image'], training=False)
-        predictions = self.models['top'](top_features, training=False)
+
+        predictions = []
+        for image in batch['image']:
+            features = self.models['backbone'](image, training=False)
+            predictions.append(self.models['top'](features, training=False))
+        predictions = tf.add_n(predictions) / len(batch)
         self.metrics['acc'].update_state(batch['label'], predictions)
 
     @staticmethod
