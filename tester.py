@@ -14,11 +14,15 @@ class Tester:
         self.checkpoint_path = os.path.join(log_path, 'checkpoint')
 
     def __call__(self, dataset):
+        paths = []
+        predictions = []
         test_step = self.build_test_step_lambda()
         tf.train.Checkpoint(**test_step.models).restore(tf.train.latest_checkpoint(self.checkpoint_path))
         for batch in dataset:
             iteration = test_step.iteration.numpy()
-            test_step.test(batch)
+            path, prediction = test_step.test(batch)
+            paths += path.numpy().tolist()
+            predictions += prediction.numpy().tolist()
             string = f'\riteration: {iteration + 1}'
             for name, metric in test_step.metrics.items():
                 string += f', {name}: {metric.result().numpy():.5e}'
@@ -26,3 +30,4 @@ class Tester:
         print()
         with open(self.log_path, 'a') as file:
             file.write(f'{get_time_string()} Tester: {string[1:]}\n')
+        return paths, predictions

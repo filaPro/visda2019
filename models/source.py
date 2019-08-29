@@ -97,6 +97,7 @@ class SourceTestStep:
             predictions.append(self.models['top'](features, training=False))
         predictions = tf.add_n(predictions) / len(batch)
         self.metrics['acc'].update_state(batch['label'], predictions)
+        return batch['path'], tf.argmax(predictions, axis=1)
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_model_lambda):

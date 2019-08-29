@@ -4,7 +4,7 @@ from functools import partial
 
 from trainer import Trainer
 from tester import Tester
-from models import SourceTrainStep, SourceTestStep, build_backbone
+from models import SourceTrainStep, SourceTestStep, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
     DOMAINS, N_CLASSES, make_dataset, make_domain_dataset, get_time_string, copy_runner
 )
