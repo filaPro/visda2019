@@ -18,7 +18,6 @@ class Preprocessor:
         """
         self.config = config
 
-    @tf.function
     def __call__(self, image):
         for item in self.config:
             if item['method'] == 'keras':

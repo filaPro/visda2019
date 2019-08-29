@@ -47,7 +47,7 @@ paths, predictions = Tester(
     build_test_step_lambda=build_test_step_lambda,
     log_path=LOG_PATH
 )(test_dataset)
-pattern = re.compile('[^a-zA-Z]')
+pattern = re.compile('[^a-zA-Z1-9/]')
 paths, predictions = zip(*sorted(zip(paths, predictions), key=lambda t: re.sub(pattern, '|', t[0].decode().lower())))
 
 with open(os.path.join(LOG_PATH, 'result.txt'), 'w') as file:

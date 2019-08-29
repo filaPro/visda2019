@@ -4,18 +4,14 @@ from .common import ClassificationLoss
 
 
 class SourceTrainStep:
-    def __init__(
-        self, build_backbone_lambda, build_top_lambda, domains, freeze_backbone_flag, backbone_training_flag,
-        learning_rate, batch_size
-    ):
+    def __init__(self, build_backbone_lambda, build_top_lambda, domains, learning_rate, batch_size):
         self.n_sources = len(domains) - 1
         self.domains = domains
-        self.backbone_training_flag = backbone_training_flag
         self.batch_size = batch_size
         self.iteration = tf.Variable(
             0, name='iteration', dtype=tf.int64, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
         )
-        self.models = self._init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag)
+        self.models = self._init_models(build_backbone_lambda, build_top_lambda)
         self.losses = self._init_losses()
         self.metrics = self._init_metrics()
         self.optimizers = self._init_optimizers(learning_rate)
@@ -25,8 +21,7 @@ class SourceTrainStep:
 
         with tf.GradientTape() as tape:
             source_top_features = tuple(
-                self.models['backbone'](batch[i]['image'], training=self.backbone_training_flag)
-                for i in range(self.n_sources)
+                self.models['backbone'](batch[i]['image'], training=True) for i in range(self.n_sources)
             )
             source_predictions = tuple(
                 self.models['top'](source_top_features[i], training=True) for i in range(self.n_sources)
@@ -49,15 +44,11 @@ class SourceTrainStep:
             self.metrics[f'{self.domains[i]}_acc'].update_state(batch[i]['label'], source_predictions[i])
 
     @staticmethod
-    def _init_models(build_backbone_lambda, build_top_lambda, freeze_backbone_flag):
-        models = {
+    def _init_models(build_backbone_lambda, build_top_lambda):
+        return {
             'backbone': build_backbone_lambda(),
             'top': build_top_lambda()
         }
-        if freeze_backbone_flag:
-            for layer in models['backbone'].layers:
-                layer.trainable = False
-        return models
 
     @staticmethod
     def _init_losses():
