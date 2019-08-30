@@ -11,17 +11,14 @@ from utils import (
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data/tfrecords_links'
-# LOG_PATH = f'/content/data/logs/{get_time_string()}-source'  # TODO: <-
-LOG_PATH = f'/content/data/logs/tmp-source'
-BATCH_SIZE = 32
+LOG_PATH = f'/content/data/logs/{get_time_string()}-source'
+BATCH_SIZE = 33
 IMAGE_SIZE = 224
 N_PROCESSES = 16
 BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
-    {'method': 'resize', 'height': 256, 'width': 256},
-    {'method': 'random_flip_left_right'},
     {'method': 'keras', 'mode': 'tf'},
-    {'method': 'random_crop', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
+    {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
 ]
 
 
@@ -60,7 +57,7 @@ build_train_step_lambda = partial(
 )
 Trainer(
     build_train_step_lambda=build_train_step_lambda,
-    n_epochs=1,
+    n_epochs=10,
     n_train_iterations=1000,
     log_path=LOG_PATH,
     restore_model_flag=False,

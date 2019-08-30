@@ -1,10 +1,12 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from . import run_balanced
+
 
 class MixMatchTrainStep:
     def __init__(
-        self, build_backbone_lambda, build_top_lambda, backbone_learning_rate, top_learning_rate,
+        self, build_backbone_lambda, build_top_lambda, learning_rate,
         loss_weight, temperature, alpha, global_batch_size, local_batch_size
     ):
         self.loss_weight = loss_weight
@@ -18,7 +20,7 @@ class MixMatchTrainStep:
         self.models = self._init_models(build_backbone_lambda, build_top_lambda)
         self.losses = self._init_losses()
         self.metrics = self._init_metrics()
-        self.optimizers = self._init_optimizers(backbone_learning_rate, top_learning_rate)
+        self.optimizers = self._init_optimizers(learning_rate)
 
     def train(self, batch):
         self.iteration.assign_add(1)
@@ -30,9 +32,10 @@ class MixMatchTrainStep:
                 source_images, source_labels, batch[-1]['image'][0], batch[-1]['image'][1]
             )
 
-        with tf.GradientTape() as backbone_tape, tf.GradientTape() as top_tape:
-            source_predictions, first_target_predictions, second_target_predictions = self._run_balanced(
-                (mixed_source_images, mixed_first_target_images, mixed_second_target_images)
+        with tf.GradientTape() as tape:
+            source_predictions, first_target_predictions, second_target_predictions = run_balanced(
+                models=(self.models['backbone'], self.models['top']),
+                tensors=(mixed_source_images, mixed_first_target_images, mixed_second_target_images)
             )
             source_loss = self.losses['source'](mixed_source_labels, source_predictions)
             first_target_loss = self.losses['target'](mixed_first_target_labels, first_target_predictions)
@@ -40,13 +43,9 @@ class MixMatchTrainStep:
             target_loss = (first_target_loss + second_target_loss) * .5
             loss = (source_loss + target_loss * self.loss_weight) / self.global_batch_size
 
-        backbone_trainable_variables = self.models['backbone'].trainable_variables
-        top_trainable_variables = self.models['top'].trainable_variables
-        self.optimizers['backbone_optimizer'].apply_gradients(zip(
-            backbone_tape.gradient(loss, backbone_trainable_variables), backbone_trainable_variables
-        ))
-        self.optimizers['top_optimizer'].apply_gradients(zip(
-            top_tape.gradient(loss, top_trainable_variables), top_trainable_variables
+        trainable_variables = self.models['backbone'].trainable_variables + self.models['top'].trainable_variables
+        self.optimizers['optimizer'].apply_gradients(zip(
+            tape.gradient(loss, trainable_variables), trainable_variables
         ))
 
         target_features = self.models['backbone'](batch[-1]['image'][1], training=False)
@@ -87,19 +86,6 @@ class MixMatchTrainStep:
             splitted_images[2], splitted_labels[2]
         )
 
-    def _run_balanced(self, images):
-        splitted_images = tuple(tf.split(images[i], 3) for i in range(3))
-        predictions = []
-        for i in range(3):
-            combined_images = tf.concat(tuple(splitted_images[j][i] for j in range(3)), axis=0)
-            features = self.models['backbone'](combined_images, training=True)
-            predictions.append(self.models['top'](features, training=True))
-        splitted_predictions = tuple(tf.split(predictions[i], 3) for i in range(3))
-        combined_predictions = []
-        for i in range(3):
-            combined_predictions.append(tf.concat(tuple(splitted_predictions[j][i] for j in range(3)), axis=0))
-        return tuple(combined_predictions)
-
     @staticmethod
     def _sharpen(x, temperature):
         powered = tf.pow(x, 1. / temperature)
@@ -139,8 +125,7 @@ class MixMatchTrainStep:
         }
 
     @staticmethod
-    def _init_optimizers(backbone_learning_rate, top_learning_rate):
+    def _init_optimizers(learning_rate):
         return {
-            'backbone_optimizer': tf.keras.optimizers.Adam(backbone_learning_rate),
-            'top_optimizer': tf.keras.optimizers.Adam(top_learning_rate)
+            'optimizer': tf.keras.optimizers.Adam(learning_rate)
         }

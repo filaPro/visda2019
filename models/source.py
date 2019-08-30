@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from .common import ClassificationLoss
+from .common import ClassificationLoss, run_balanced
 
 
 class SourceTrainStep:
@@ -20,11 +20,9 @@ class SourceTrainStep:
         self.iteration.assign_add(1)
 
         with tf.GradientTape() as tape:
-            source_top_features = tuple(
-                self.models['backbone'](batch[i]['image'], training=True) for i in range(self.n_sources)
-            )
-            source_predictions = tuple(
-                self.models['top'](source_top_features[i], training=True) for i in range(self.n_sources)
+            source_predictions = run_balanced(
+                models=(self.models['backbone'], self.models['top']),
+                tensors=tuple(batch[i]['image'] for i in range(self.n_sources))
             )
             loss = self.losses['classification'](
                 tuple(batch[i]['label'] for i in range(self.n_sources)), source_predictions

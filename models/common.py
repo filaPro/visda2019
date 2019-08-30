@@ -46,3 +46,19 @@ class ClassificationLoss:
             loss += self.scorer(label, prediction)
         loss /= len(labels)
         return loss
+
+
+def run_balanced(models, tensors):
+    n_tensors = len(tensors)
+    splitted_tensors = tuple(tf.split(tensors[i], n_tensors) for i in range(n_tensors))
+    results = []
+    for i in range(n_tensors):
+        combined_tensors = tf.concat(tuple(splitted_tensors[j][i] for j in range(n_tensors)), axis=0)
+        for model in models:
+            combined_tensors = model(combined_tensors, training=True)
+        results.append(combined_tensors)
+    splitted_results = tuple(tf.split(results[i], n_tensors) for i in range(n_tensors))
+    combined_results = []
+    for i in range(3):
+        combined_results.append(tf.concat(tuple(splitted_results[j][i] for j in range(n_tensors)), axis=0))
+    return tuple(combined_results)
