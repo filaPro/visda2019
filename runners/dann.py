@@ -1,42 +1,41 @@
+import os
 import tensorflow as tf
 from functools import partial
 
 from trainer import Trainer
 from tester import Tester
-from models import DannTrainStep, DannTestStep, GradientReverse, build_backbone
+from models import DannTrainStep, SourceTestStep, GradientReverse, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
-    DOMAINS, N_CLASSES, read_paths_and_labels, make_dataset, make_domain_dataset, get_time_string, copy_runner
+    DOMAINS, N_CLASSES, make_dataset, make_domain_dataset, get_time_string, copy_runner
 )
 from preprocessor import Preprocessor
 
-RAW_DATA_PATH = '/content/data/raw'
-LOG_PATH = f'/content/data/logs/{get_time_string()}-dann'
-BATCH_SIZE = 24
+DATA_PATH = '/content/data/tfrecords_links'
+LOG_PATH = f'/content/data/logs/tmp-dann'  # TODO: <-
+N_GPUS = 1
+BATCH_SIZE = 32
 IMAGE_SIZE = 224
-BACKBONE_NAME = 'mobilenet_v2'
+N_PROCESSES = 16
+BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
     {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE}
 ]
 
 
-def build_bottom():
-    return tf.keras.Sequential([
-        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
-        tf.keras.layers.Dense(4096, activation='relu')
-    ])
-
-
 def build_top(n_classes):
     return tf.keras.Sequential([
-        tf.keras.layers.Dense(n_classes, input_shape=(4096,), activation='softmax')
+        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
+        tf.keras.layers.Dropout(.2),
+        tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 
 
 def build_discriminator(n_domains):
     return tf.keras.Sequential([
-        GradientReverse(.5),
-        tf.keras.layers.Dense(64, input_shape=(4096,), activation='relu'),
+        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
+        GradientReverse(1.),
+        tf.keras.layers.Dropout(.2),
         tf.keras.layers.Dense(n_domains, activation='softmax')
     ])
 
@@ -45,52 +44,47 @@ build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_S
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_discriminator_lambda = partial(build_discriminator, n_domains=len(DOMAINS))
 preprocessor = Preprocessor(CONFIG)
+test_preprocessor = SelfEnsemblingPreprocessor((CONFIG,))
 
-paths_and_labels = read_paths_and_labels(RAW_DATA_PATH, DOMAINS)
-train_dataset = iter(make_dataset(
-    source_paths=paths_and_labels['source']['all']['paths'],
-    source_labels=paths_and_labels['source']['all']['labels'],
+train_dataset = make_dataset(
+    source_path=os.path.join(DATA_PATH, 'source', 'all'),
     source_preprocessor=preprocessor,
-    target_paths=paths_and_labels['target']['all']['paths'],
-    target_labels=paths_and_labels['target']['all']['labels'],
+    source_batch_size=BATCH_SIZE,
+    target_path=os.path.join(DATA_PATH, 'target', 'all'),
     target_preprocessor=preprocessor,
-    batch_size=BATCH_SIZE
-))
-
-train_step = DannTrainStep(
+    target_batch_size=BATCH_SIZE,
+    domains=DOMAINS,
+    n_processes=N_PROCESSES
+)
+copy_runner(__file__, LOG_PATH)
+build_train_step_lambda = partial(
+    DannTrainStep,
     build_backbone_lambda=build_backbone_lambda,
-    build_bottom_lambda=build_bottom,
     build_top_lambda=build_top_lambda,
     build_discriminator_lambda=build_discriminator_lambda,
     domains=DOMAINS,
-    freeze_backbone_flag=True,
-    backbone_training_flag=False,
-    learning_rate=.001,
-    loss_weight=1.
-)
-trainer = Trainer(
-    train_step=train_step,
-    n_iterations=500,
-    n_log_iterations=100,
-    n_save_iterations=500,
-    n_validate_iterations=0,
-    log_path=LOG_PATH,
-    restore_model_flag=False,
-    restore_optimizer_flag=False
-)
-copy_runner(__file__, LOG_PATH)
-trainer(train_dataset, None)
-
-test_dataset = iter(make_domain_dataset(
-    paths=paths_and_labels['target']['all']['paths'],
-    labels=paths_and_labels['target']['all']['labels'],
-    preprocessor=Preprocessor(CONFIG),
+    learning_rate=0.0001,
+    loss_weight=.03,
     batch_size=BATCH_SIZE
-))
-test_step = DannTestStep(
+)
+Trainer(
+    build_train_step_lambda=build_train_step_lambda,
+    n_epochs=10,
+    n_train_iterations=1000,
+    log_path=LOG_PATH,
+    restore_model_flag=True,
+    restore_optimizer_flag=True,
+    single_gpu_flag=N_GPUS == 1
+)(train_dataset)
+
+test_dataset = make_domain_dataset(
+    path=os.path.join(DATA_PATH, 'target', 'all'),
+    preprocessor=test_preprocessor,
+    n_processes=N_PROCESSES
+).batch(BATCH_SIZE)
+build_test_step_lambda = partial(
+    SourceTestStep,
     build_backbone_lambda=build_backbone_lambda,
-    build_bottom_lambda=build_bottom,
     build_top_lambda=build_top_lambda
 )
-tester = Tester(test_step=test_step, log_path=LOG_PATH)
-tester(test_dataset)
+Tester(build_test_step_lambda=build_test_step_lambda, log_path=LOG_PATH)(test_dataset)

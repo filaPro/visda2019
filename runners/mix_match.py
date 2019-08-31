@@ -32,7 +32,7 @@ COMPLEX_CONFIG = [
 def build_top(n_classes):
     return tf.keras.Sequential([
         tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 2048)),
-        tf.keras.layers.Dropout(.2),
+        tf.keras.layers.Dropout(.5),
         tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 

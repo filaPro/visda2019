@@ -3,5 +3,5 @@ from .source import SourceTrainStep, SourceTestStep
 from .common import ClassificationLoss, get_backbone, build_backbone, run_balanced
 from .domain_classifier import DomainClassifierTrainStep, DomainClassifierTestStep
 from .self_ensembling import SelfEnsemblingTrainStep, SelfEnsemblingTestStep, SelfEnsemblingPreprocessor
-from .dann import DannTrainStep, DannTestStep, GradientReverse
+from .dann import DannTrainStep, GradientReverse
 from .mix_match import MixMatchTrainStep

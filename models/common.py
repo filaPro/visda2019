@@ -59,6 +59,6 @@ def run_balanced(models, tensors):
         results.append(combined_tensors)
     splitted_results = tuple(tf.split(results[i], n_tensors) for i in range(n_tensors))
     combined_results = []
-    for i in range(3):
+    for i in range(n_tensors):
         combined_results.append(tf.concat(tuple(splitted_results[j][i] for j in range(n_tensors)), axis=0))
     return tuple(combined_results)

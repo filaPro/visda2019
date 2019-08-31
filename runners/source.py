@@ -12,6 +12,7 @@ from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data/tfrecords_links'
 LOG_PATH = f'/content/data/logs/{get_time_string()}-source'
+N_GPUS = 1
 BATCH_SIZE = 33
 IMAGE_SIZE = 224
 N_PROCESSES = 16
@@ -25,7 +26,7 @@ CONFIG = [
 def build_top(n_classes):
     return tf.keras.Sequential([
         tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
-        tf.keras.layers.Dense(512, activation='relu'),
+        tf.keras.layers.Dropout(.2),
         tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 
@@ -62,7 +63,7 @@ Trainer(
     log_path=LOG_PATH,
     restore_model_flag=False,
     restore_optimizer_flag=False,
-    single_gpu_flag=False
+    single_gpu_flag=N_GPUS == 1
 )(train_dataset)
 
 test_dataset = make_domain_dataset(
