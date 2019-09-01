@@ -17,6 +17,8 @@ BATCH_SIZE = 33
 IMAGE_SIZE = 224
 N_PROCESSES = 16
 BACKBONE_NAME = 'mobile_net_v2'
+DOMAINS = DOMAINS[:4]
+print(f'{DOMAINS[:-1]} -> {DOMAINS[-1]}')
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
     {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}

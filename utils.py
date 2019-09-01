@@ -6,7 +6,7 @@ from functools import partial
 from datetime import datetime
 
 
-DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch')
+DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch', 'clipart', 'painting')
 N_CLASSES = 345
 
 
@@ -17,7 +17,7 @@ def download_raw_data(path, domains):
         print(
             'Raw data path already exists. '
             'Be careful with downloading twice. '
-            'If nessesary remove it and retry downloading.'
+            'If necessary remove it and retry downloading.'
         )
         return
 
@@ -33,12 +33,6 @@ def download_raw_data(path, domains):
             os.system(f'wget -P {path} {url}')
 
 
-def unzip_raw_data(path, domains):
-    for domain in domains:
-        print(f'extracting: {domain}')
-        os.system(f'cd {path} && unzip -qo {domain}.zip')
-
-
 def read_domain_paths_and_labels(path, domain, phase):
     """
     :param phase: 'train' or 'test'
@@ -47,7 +41,14 @@ def read_domain_paths_and_labels(path, domain, phase):
     with open(os.path.join(path, f'{domain}_{phase}.txt')) as file:
         paths_and_labels = list(map(lambda s: s.split(), file.readlines()))
     random.shuffle(paths_and_labels)
-    paths, labels = zip(*paths_and_labels)
+
+    # For now 'clipart' and 'painting' domains don't have ground truth.
+    # After the end of the competition this condition must be removed.
+    if len(paths_and_labels[0] == 1):
+        paths = paths_and_labels
+        labels = ['0'] * len(paths)
+    else:
+        paths, labels = zip(*paths_and_labels)
     paths = list(map(lambda s: os.path.join(path, s), paths))
     labels = list(map(int, labels))
     return paths, labels

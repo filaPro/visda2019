@@ -37,6 +37,8 @@ def build_top(n_classes):
     ])
 
 
+DOMAINS = DOMAINS[:4]
+print(f'{DOMAINS[:-1]} -> {DOMAINS[-1]}')
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 source_preprocessor = Preprocessor(COMPLEX_CONFIG)

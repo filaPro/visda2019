@@ -14,7 +14,7 @@ class Preprocessor:
             method: random_rotate
                 angle: 10., range: (.0, 180.)
             method: random_translate
-                shift: .1, range: (0, 1.)
+                shift: .1, range: (.0, 1.)
         """
         self.config = config
 
@@ -40,6 +40,10 @@ class Preprocessor:
                 image = tf.image.resize(image, size=(item['height'], item['width']))
             elif item['method'] == 'random_crop':
                 image = tf.image.random_crop(image, size=(item['height'], item['width'], item['n_channels']))
+            elif item['method'] == 'random_size_crop':
+                height = tf.random.uniform([], item['min_height'], item['max_height'], dtype=tf.int64)
+                width = tf.random.uniform([], item['min_width'], item['max_width'], dtype=tf.int64)
+                image = tf.image.random_crop(image, size=(height, width, item['n_channels']))
             elif item['method'] == 'flip_left_right':
                 image = tf.image.flip_left_right(image)
             elif item['method'] == 'random_flip_left_right':
@@ -52,7 +56,7 @@ class Preprocessor:
                 image = tf.image.random_contrast(image, 1 - item['delta'], 1 + item['delta'])
                 image = tf.clip_by_value(image, 0., 255.)
             elif item['method'] == 'random_rotate':
-                radians = item['angle'] / 180.0 * np.pi
+                radians = item['angle'] / 180. * np.pi
                 angle = tf.random.uniform([], -radians, radians)
                 image = tfa.image.rotate(image, angle)
             elif item['method'] == 'random_mean_filter':
