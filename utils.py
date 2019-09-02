@@ -44,8 +44,8 @@ def read_domain_paths_and_labels(path, domain, phase):
 
     # For now 'clipart' and 'painting' domains don't have ground truth.
     # After the end of the competition this condition must be removed.
-    if len(paths_and_labels[0] == 1):
-        paths = paths_and_labels
+    if len(paths_and_labels[0]) == 1:
+        paths = list(map(lambda s: s[0], paths_and_labels))
         labels = ['0'] * len(paths)
     else:
         paths, labels = zip(*paths_and_labels)

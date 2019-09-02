@@ -6,10 +6,11 @@ from trainer import Trainer
 from tester import Tester
 from models import MixMatchTrainStep, SourceTestStep, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
-    DOMAINS, N_CLASSES, make_dataset, make_domain_dataset, get_time_string, copy_runner
+    DOMAINS, N_CLASSES, make_dataset, make_domain_dataset, get_time_string, copy_runner, link_tfrecords
 )
 from preprocessor import Preprocessor
 
+RECORD_PATH = '/content/data/tfrecords'
 DATA_PATH = '/content/data/tfrecords_links'
 LOG_PATH = f'/content/data/logs/{get_time_string()}-mix-match'
 LOCAL_BATCH_SIZE = 9
@@ -39,6 +40,8 @@ def build_top(n_classes):
 
 DOMAINS = DOMAINS[:4]
 print(f'{DOMAINS[:-1]} -> {DOMAINS[-1]}')
+link_tfrecords(in_path=RECORD_PATH, out_path=DATA_PATH, domains=DOMAINS)
+
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 source_preprocessor = Preprocessor(COMPLEX_CONFIG)
