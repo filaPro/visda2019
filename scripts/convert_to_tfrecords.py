@@ -1,8 +1,9 @@
 import os
+import random
 import tensorflow as tf
 from argparse import ArgumentParser
 
-from utils import DOMAINS, read_domain_paths_and_labels
+from utils import DOMAINS
 
 
 class Writer:
@@ -44,11 +45,45 @@ def path_and_label_to_string(in_path, path, label):
     return example.SerializeToString()
 
 
-def run(in_path, out_path, domains, size):
-    os.makedirs(out_path, exist_ok=True)
+def read_domain_paths_and_labels(path, domain, phase):
+    print('>', domain, phase)
+    if phase == 'unlabeled':
+        phase = 'unl'
+    with open(os.path.join(path, f'{domain}_{phase}.txt')) as file:
+        paths_and_labels = list(map(lambda s: s.split(), file.readlines()))
+    random.shuffle(paths_and_labels)
+
+    # For now 'clipart' and 'painting' domains don't have ground truth.
+    # After the end of the competition this condition must be removed.
+    if len(paths_and_labels[0]) == 1:
+        paths = list(map(lambda s: s[0], paths_and_labels))
+        labels = ['0'] * len(paths)
+    else:
+        paths, labels = zip(*paths_and_labels)
+
+    # Semisupervised part still has missing domain name in path.
+    paths = list(map(lambda s: os.path.join(path, s if '/' in s else f'{domain}/{s}'), paths))
+    labels = list(map(int, labels))
+    return paths, labels
+
+
+def run(path, size, track):
+    if track == 0:
+        phases = ('train', 'test')
+        domains = DOMAINS
+        path = os.path.join(path, 'multi_source')
+    else:
+        phases = ('labeled', 'unlabeled')
+        domains = DOMAINS[3:]
+        path = os.path.join(path, 'semi_supervised')
+    in_path = os.path.join(path, 'raw')
+    out_path = os.path.join(path, 'tfrecords')
+    assert os.path.exists(in_path)
+    assert not os.path.exists(out_path)
+    os.mkdir(out_path)
     writer = Writer(out_path, size)
     for domain in domains:
-        for phase in ('train', 'test'):
+        for phase in phases:
             writer.reset(f'{domain}_{phase}')
             paths, labels = read_domain_paths_and_labels(in_path, domain, phase)
             for path, label in zip(paths, labels):
@@ -58,13 +93,8 @@ def run(in_path, out_path, domains, size):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--in_path', type=str, required=True)
-    parser.add_argument('--out_path', type=str, required=True)
-    parser.add_argument('--size', type=int, required=True)
+    parser.add_argument('--path', type=str, required=True)
+    parser.add_argument('--track', type=int, required=True, help='0: multi source, 1: semi supervised')
+    parser.add_argument('--size', type=int, default=15000)
     options = vars(parser.parse_args())
-    run(
-        in_path=options['in_path'],
-        out_path=options['out_path'],
-        domains=DOMAINS,
-        size=options['size']
-    )
+    run(path=options['path'], size=options['size'], track=options['track'])

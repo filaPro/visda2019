@@ -1,13 +1,13 @@
 import os
-import random
 import shutil
 import tensorflow as tf
 from functools import partial
 from datetime import datetime
 
 
-DOMAINS = ('infograph', 'quickdraw', 'real', 'sketch', 'clipart', 'painting')
+DOMAINS = ('real', 'infograph', 'quickdraw', 'sketch', 'clipart', 'painting')
 N_CLASSES = 345
+BUFFER_SIZE = 128
 
 
 def download_raw_data(path, domains):
@@ -33,27 +33,6 @@ def download_raw_data(path, domains):
             os.system(f'wget -P {path} {url}')
 
 
-def read_domain_paths_and_labels(path, domain, phase):
-    """
-    :param phase: 'train' or 'test'
-    """
-    print('>', domain, phase)
-    with open(os.path.join(path, f'{domain}_{phase}.txt')) as file:
-        paths_and_labels = list(map(lambda s: s.split(), file.readlines()))
-    random.shuffle(paths_and_labels)
-
-    # For now 'clipart' and 'painting' domains don't have ground truth.
-    # After the end of the competition this condition must be removed.
-    if len(paths_and_labels[0]) == 1:
-        paths = list(map(lambda s: s[0], paths_and_labels))
-        labels = ['0'] * len(paths)
-    else:
-        paths, labels = zip(*paths_and_labels)
-    paths = list(map(lambda s: os.path.join(path, s), paths))
-    labels = list(map(int, labels))
-    return paths, labels
-
-
 @tf.function
 def decode_image(image_bytes):
     if tf.image.is_jpeg(image_bytes):
@@ -74,9 +53,10 @@ def parse_example(example, preprocessor):
     return data
 
 
-def make_domain_dataset(path, preprocessor, n_processes):
+def make_domain_dataset(paths, preprocessor, n_processes):
+    print(f'paths: {paths}')
     return tf.data.Dataset.list_files(
-        os.path.join(path, '*')
+        paths
     ).interleave(
         tf.data.TFRecordDataset,
         cycle_length=n_processes,
@@ -87,43 +67,57 @@ def make_domain_dataset(path, preprocessor, n_processes):
     )
 
 
-def make_dataset(
-    source_path, source_preprocessor, source_batch_size,
-    target_path, target_preprocessor, target_batch_size,
-    domains, n_processes
+def phase_to_template(phase):
+    return '*' if phase == 'all' else f'{phase}*'
+
+
+def make_multi_source_dataset(
+    source_domains, source_phase, source_preprocessor, source_batch_size,
+    target_domain, target_phase, target_preprocessor, target_batch_size,
+    path, n_processes
 ):
-    buffer_size = 128
-    datasets = []
-    for domain in domains[:-1]:
+    datasets = list()
+    for domain in source_domains:
         datasets.append(make_domain_dataset(
-            path=os.path.join(source_path, domain),
+            paths=os.path.join(path, 'multi_source', 'tfrecords', f'{domain}_{phase_to_template(source_phase)}'),
             preprocessor=source_preprocessor,
             n_processes=n_processes
-        ).repeat().shuffle(buffer_size).batch(source_batch_size))
+        ).repeat().shuffle(BUFFER_SIZE).batch(source_batch_size))
     datasets.append(make_domain_dataset(
-        path=target_path,
+        paths=os.path.join(path, 'multi_source', 'tfrecords', f'{target_domain}_{phase_to_template(target_phase)}'),
         preprocessor=target_preprocessor,
         n_processes=n_processes
-    ).repeat().shuffle(buffer_size).batch(target_batch_size))
+    ).repeat().shuffle(BUFFER_SIZE).batch(target_batch_size))
     return tf.data.Dataset.zip(tuple(datasets)).prefetch(n_processes)
 
 
-def link_tfrecords(in_path, out_path, domains):
-    os.makedirs(out_path, exist_ok=True)
-    for file_name in os.listdir(in_path):
-        domain = file_name.split('_')[0]
-        phase = file_name.split('_')[1]
-        split = 'target' if domain == domains[-1] else 'source'
-        for all_phase in (phase, 'all'):
-            path = os.path.join(out_path, split, all_phase)
-            if split == 'source':
-                path = os.path.join(path, domain)
-            os.makedirs(path, exist_ok=True)
-            os.system(f'ln -s {os.path.join(in_path, file_name)} {path}')
+def make_semi_supervised_dataset(
+    source_domain, source_phase, source_preprocessor, source_batch_size,
+    labeled_preprocessor, labeled_batch_size,
+    unlabeled_preprocessor, unlabeled_batch_size,
+    target_domain, path, n_processes
+):
+    datasets = list()
+    datasets.append(make_domain_dataset(
+        paths=os.path.join(path, 'multi_source', 'tfrecords', f'{source_domain}_{phase_to_template(source_phase)}'),
+        preprocessor=source_preprocessor,
+        n_processes=n_processes
+    ).repeat().shuffle(BUFFER_SIZE).batch(source_batch_size))
+    datasets.append(make_domain_dataset(
+        paths=os.path.join(path, 'semi_supervised', 'tfrecords', f'{target_domain}_labeled*'),
+        preprocessor=labeled_preprocessor,
+        n_processes=n_processes
+    ).repeat().shuffle(BUFFER_SIZE).batch(labeled_batch_size))
+    datasets.append(make_domain_dataset(
+        paths=os.path.join(path, 'semi_supervised', 'tfrecords', f'{target_domain}_unlabeled*'),
+        preprocessor=unlabeled_preprocessor,
+        n_processes=n_processes
+    ).repeat().shuffle(BUFFER_SIZE).batch(unlabeled_batch_size))
+    return tf.data.Dataset.zip(tuple(datasets)).prefetch(n_processes)
 
 
 def get_time_string():
-    return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
+    return datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
 
 
 def copy_runner(file, path):
