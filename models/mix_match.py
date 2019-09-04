@@ -25,11 +25,9 @@ class MixMatchTrainStep:
     def train(self, batch):
         self.iteration.assign_add(1)
 
-        source_images = tf.concat(tuple(d['image'] for d in batch[:-1]), axis=0)
-        source_labels = tf.concat(tuple(d['label'] for d in batch[:-1]), axis=0)
         mixed_source_images, mixed_source_labels, mixed_first_target_images, mixed_first_target_labels, \
             mixed_second_target_images, mixed_second_target_labels = self._mix_match(
-                source_images, source_labels, batch[-1]['image'][0], batch[-1]['image'][1]
+                batch[0]['image'], batch[0]['label'], batch[-1]['image'][0], batch[-1]['image'][1]
             )
 
         with tf.GradientTape() as tape:

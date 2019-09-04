@@ -4,7 +4,7 @@ from functools import partial
 
 from tester import Tester
 from models import SourceTestStep, SelfEnsemblingPreprocessor, build_backbone
-from utils import DOMAINS, N_CLASSES, make_domain_dataset
+from utils import DOMAINS, N_CLASSES, make_domain_dataset, list_tfrecords
 
 DATA_PATH = '/content/data'
 LOG_PATH = '/content/logs/tmp-source'
@@ -28,14 +28,19 @@ def build_top(n_classes):
     ])
 
 
+target_domain = DOMAINS[3]
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 test_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG))
 
+test_paths = list_tfrecords(
+    path=os.path.join(DATA_PATH, 'multi_source', 'tfrecords'),
+    domains=(target_domain,),
+    phase='test'
+)
 test_dataset = make_domain_dataset(
-    paths=os.path.join(DATA_PATH, 'multi_source', 'tfrecords', f'{DOMAINS[3]}_test*'),
-    preprocessor=test_preprocessor,
-    n_processes=N_PROCESSES
+    paths=test_paths,
+    preprocessor=test_preprocessor
 ).batch(BATCH_SIZE)
 build_test_step_lambda = partial(
     SourceTestStep,

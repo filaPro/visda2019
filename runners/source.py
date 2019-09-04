@@ -6,16 +6,15 @@ from trainer import Trainer
 from tester import Tester
 from models import SourceTrainStep, SourceTestStep, SelfEnsemblingPreprocessor, build_backbone
 from utils import (
-    DOMAINS, N_CLASSES, make_multi_source_dataset, make_domain_dataset, get_time_string, copy_runner
+    DOMAINS, N_CLASSES, make_multi_source_dataset, make_domain_dataset, get_time_string, copy_runner, list_tfrecords
 )
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data'
 LOG_PATH = f'/content/logs/{get_time_string()}-source'
 N_GPUS = 1
-BATCH_SIZE = 36
+BATCH_SIZE = 33
 IMAGE_SIZE = 224
-N_PROCESSES = 16
 BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
@@ -47,8 +46,7 @@ train_dataset = make_multi_source_dataset(
     target_phase='all',
     target_preprocessor=preprocessor,
     target_batch_size=BATCH_SIZE,
-    path=DATA_PATH,
-    n_processes=16
+    path=DATA_PATH
 )
 
 copy_runner(__file__, LOG_PATH)
@@ -70,10 +68,14 @@ Trainer(
     single_gpu_flag=N_GPUS == 1
 )(train_dataset)
 
+test_paths = list_tfrecords(
+    path=os.path.join(DATA_PATH, 'multi_source', 'tfrecords'),
+    domains=(target_domain,),
+    phase='test'
+)
 test_dataset = make_domain_dataset(
-    paths=os.path.join(DATA_PATH, 'multi_source', 'tfrecords', f'{target_domain}_test*'),
-    preprocessor=test_preprocessor,
-    n_processes=N_PROCESSES
+    paths=test_paths,
+    preprocessor=test_preprocessor
 ).batch(BATCH_SIZE)
 build_test_step_lambda = partial(
     SourceTestStep,

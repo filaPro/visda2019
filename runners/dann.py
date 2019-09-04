@@ -1,13 +1,9 @@
-import os
 import tensorflow as tf
 from functools import partial
 
 from trainer import Trainer
-from tester import Tester
-from models import DannTrainStep, SourceTestStep, GradientReverse, SelfEnsemblingPreprocessor, build_backbone
-from utils import (
-    DOMAINS, N_CLASSES, make_multi_source_dataset, make_domain_dataset, get_time_string, copy_runner
-)
+from models import DannTrainStep, GradientReverse, SelfEnsemblingPreprocessor, build_backbone
+from utils import DOMAINS, N_CLASSES, make_multi_source_dataset, get_time_string, copy_runner
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data'
@@ -15,7 +11,6 @@ LOG_PATH = f'/content/logs/{get_time_string()}-dann'
 N_GPUS = 1
 BATCH_SIZE = 32
 IMAGE_SIZE = 224
-N_PROCESSES = 16
 BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
@@ -57,8 +52,7 @@ train_dataset = make_multi_source_dataset(
     target_phase='all',
     target_preprocessor=preprocessor,
     target_batch_size=BATCH_SIZE,
-    path=DATA_PATH,
-    n_processes=16
+    path=DATA_PATH
 )
 copy_runner(__file__, LOG_PATH)
 build_train_step_lambda = partial(
@@ -80,15 +74,3 @@ Trainer(
     restore_optimizer_flag=True,
     single_gpu_flag=N_GPUS == 1
 )(train_dataset)
-
-test_dataset = make_domain_dataset(
-    paths=os.path.join(DATA_PATH, 'multi_source_supervised', 'tfrecords', f'{target_domain}_test*'),
-    preprocessor=test_preprocessor,
-    n_processes=N_PROCESSES
-).batch(BATCH_SIZE)
-build_test_step_lambda = partial(
-    SourceTestStep,
-    build_backbone_lambda=build_backbone_lambda,
-    build_top_lambda=build_top_lambda
-)
-Tester(build_test_step_lambda=build_test_step_lambda, log_path=LOG_PATH)(test_dataset)
