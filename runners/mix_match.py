@@ -66,8 +66,8 @@ build_train_step_lambda = partial(
 )
 Trainer(
     build_train_step_lambda,
-    n_epochs=1,
-    n_train_iterations=100,
+    n_epochs=1000,
+    n_train_iterations=1000,
     log_path=LOG_PATH,
     restore_model_flag=False,
     restore_optimizer_flag=False,
