@@ -1,5 +1,5 @@
 tensorflow-gpu==2.0.0-beta1
 efficientnet==1.0.0b3
-tensorflow-addons
-tensorflow-probability
+tensorflow-addons==0.5.0
+tensorflow-probability==0.7.0
 scikit-image

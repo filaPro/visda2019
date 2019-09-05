@@ -124,7 +124,25 @@ def make_combined_multi_source_dataset(
             paths=paths,
             preprocessor=source_preprocessor
         ).repeat().shuffle(BUFFER_SIZE))
-    source_dataset = tf.data.experimental.sample_from_datasets(datasets).batch(source_batch_size)
+    # source_dataset = tf.data.experimental.sample_from_datasets(datasets).batch(source_batch_size)
+    # This is a very dirty hack.
+    # Reason 1: tf.data.experimental causes segmentation fault on multi GPU for tensorflow-gpu==2.0.0beta*.
+    # Reason 2: tensorflow can not be easily updated because will need cudnn7.6, while cluster has <7.5.
+    source_dataset = tf.data.Dataset.zip(
+        tuple(datasets)
+    ).batch(
+        1
+    ).map(
+        lambda *args: {
+            'image': tf.concat(tuple(args[i]['image'] for i in range(len(datasets))), axis=0),
+            'label': tf.concat(tuple(args[i]['label'] for i in range(len(datasets))), axis=0),
+            'path': tf.concat(tuple(args[i]['path'] for i in range(len(datasets))), axis=0)
+        },
+        num_parallel_calls=N_PROCESSES
+    ).unbatch(
+    ).batch(
+        source_batch_size
+    )
     target_paths = list_tfrecords(
         path=os.path.join(path, 'multi_source', 'tfrecords'),
         domain=target_domain,
