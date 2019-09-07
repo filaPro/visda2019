@@ -9,9 +9,9 @@ from preprocessor import Preprocessor
 DATA_PATH = '/content/data'
 LOG_PATH = f'/content/logs/{get_time_string()}-source'
 N_GPUS = 1
-BATCH_SIZE = 128
+BATCH_SIZE = 33
 IMAGE_SIZE = 224
-BACKBONE_NAME = 'efficient_net_b5'
+BACKBONE_NAME = 'mobile_net_v2'
 CONFIG = [
     {'method': 'keras', 'mode': 'tf'},
     {'method': 'resize', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
@@ -19,21 +19,21 @@ CONFIG = [
 COMPLEX_CONFIG = [
     {'method': 'resize', 'height': 256, 'width': 256},
     {'method': 'random_flip_left_right'},
-    {'method': 'keras', 'mode': 'torch'},
+    {'method': 'keras', 'mode': 'tf'},
     {'method': 'random_crop', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
 ]
 
 
 def build_top(n_classes):
     return tf.keras.Sequential([
-        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 2048)),
+        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 1280)),
         tf.keras.layers.Dropout(.5),
         tf.keras.layers.Dense(n_classes, activation='softmax')
     ])
 
 
-source_domains = DOMAINS[:4]
-target_domain = DOMAINS[4]
+source_domains = DOMAINS[:3]
+target_domain = DOMAINS[3]
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 preprocessor = Preprocessor(CONFIG)

@@ -3,12 +3,13 @@ from functools import partial
 
 from trainer import Trainer
 from models import MixMatchTrainStep, SelfEnsemblingPreprocessor, build_backbone
-from utils import DOMAINS, N_CLASSES, make_combined_multi_source_dataset, get_time_string, copy_runner
+from utils import DOMAINS, N_CLASSES, make_combined_semi_supervised_dataset, get_time_string, copy_runner
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data'
 LOG_PATH = f'/content/logs/{get_time_string()}-mix-match'
 LOCAL_BATCH_SIZE = 6
+SOURCE_BATCH_SIZE = 4
 N_GPUS = 1
 IMAGE_SIZE = 224
 BACKBONE_NAME = 'efficient_net_b5'
@@ -32,23 +33,24 @@ def build_top(n_classes):
     ])
 
 
-source_domains = DOMAINS[:3]
+source_domain = DOMAINS[0]
 target_domain = DOMAINS[3]
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 source_preprocessor = Preprocessor(COMPLEX_CONFIG)
-target_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG))
-test_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG))
+labeled_preprocessor = Preprocessor(COMPLEX_CONFIG)
+unlabeled_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG))
 
-train_dataset = make_combined_multi_source_dataset(
-    source_domains=source_domains,
+train_dataset = make_combined_semi_supervised_dataset(
+    source_domain=source_domain,
     source_phase='all',
     source_preprocessor=source_preprocessor,
-    source_batch_size=LOCAL_BATCH_SIZE * N_GPUS,
+    source_batch_size=SOURCE_BATCH_SIZE * N_GPUS,
     target_domain=target_domain,
-    target_phase='all',
-    target_preprocessor=target_preprocessor,
-    target_batch_size=LOCAL_BATCH_SIZE * N_GPUS,
+    labeled_preprocessor=labeled_preprocessor,
+    labeled_batch_size=(LOCAL_BATCH_SIZE - SOURCE_BATCH_SIZE) * N_GPUS,
+    unlabeled_preprocessor=unlabeled_preprocessor,
+    unlabeled_batch_size=LOCAL_BATCH_SIZE * N_GPUS,
     path=DATA_PATH
 )
 

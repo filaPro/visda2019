@@ -28,7 +28,7 @@ def build_top(n_classes):
     ])
 
 
-target_domain = DOMAINS[5]
+target_domain = DOMAINS[3]
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
 test_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG))
