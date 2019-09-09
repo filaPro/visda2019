@@ -38,6 +38,23 @@ class Preprocessor:
                     raise ValueError(f'Invalid mode: {item["mode"]} for method: keras')
             elif item['method'] == 'resize':
                 image = tf.image.resize(image, size=(item['height'], item['width']))
+            elif item['method'] == 'resize_min':
+                shape = tf.cast(tf.shape(image), tf.float32)
+                ratio = item['size'] / tf.minimum(shape[0], shape[1])
+                image = tf.image.resize(image, size=(ratio * shape[0], ratio * shape[1]))
+            elif item['method'] == 'resize_max':
+                shape = tf.cast(tf.shape(image), tf.float32)
+                ratio = item['size'] / tf.maximum(shape[0], shape[1])
+                image = tf.image.resize(image, size=(ratio * shape[0], ratio * shape[1]))
+            elif item['method'] == 'central_crop':
+                height, width = tf.shape(image)[:2]
+                image = tf.image.crop_to_bounding_box(
+                    image,
+                    offset_height=(height - item['height']) // 2,
+                    offset_width=(width - item['width']) // 2,
+                    target_height=item['height'],
+                    target_width=item['width']
+                )
             elif item['method'] == 'random_crop':
                 image = tf.image.random_crop(image, size=(item['height'], item['width'], item['n_channels']))
             elif item['method'] == 'random_size_crop':
