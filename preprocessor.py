@@ -47,11 +47,11 @@ class Preprocessor:
                 ratio = item['size'] / tf.maximum(shape[0], shape[1])
                 image = tf.image.resize(image, size=(ratio * shape[0], ratio * shape[1]))
             elif item['method'] == 'central_crop':
-                height, width = tf.shape(image)[:2]
+                shape = tf.shape(image)
                 image = tf.image.crop_to_bounding_box(
                     image,
-                    offset_height=(height - item['height']) // 2,
-                    offset_width=(width - item['width']) // 2,
+                    offset_height=(shape[0] - item['height']) // 2,
+                    offset_width=(shape[1] - item['width']) // 2,
                     target_height=item['height'],
                     target_width=item['width']
                 )
