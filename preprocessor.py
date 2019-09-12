@@ -41,11 +41,11 @@ class Preprocessor:
             elif item['method'] == 'resize_min':
                 shape = tf.cast(tf.shape(image), tf.float32)
                 ratio = item['size'] / tf.minimum(shape[0], shape[1])
-                image = tf.image.resize(image, size=(ratio * shape[0], ratio * shape[1]))
+                image = tf.image.resize(image, size=(tf.round(ratio * shape[0]), tf.round(ratio * shape[1])))
             elif item['method'] == 'resize_max':
                 shape = tf.cast(tf.shape(image), tf.float32)
                 ratio = item['size'] / tf.maximum(shape[0], shape[1])
-                image = tf.image.resize(image, size=(ratio * shape[0], ratio * shape[1]))
+                image = tf.image.resize(image, size=(tf.round(ratio * shape[0]), tf.round(ratio * shape[1])))
             elif item['method'] == 'central_crop':
                 shape = tf.shape(image)
                 image = tf.image.crop_to_bounding_box(
