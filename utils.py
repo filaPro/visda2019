@@ -140,6 +140,8 @@ def make_combined_multi_source_dataset(
         target_domain, target_phase, target_preprocessor,
         path
     )
+    # TODO: only for mix_match_dann
+    datasets = tuple(d.map(lambda x: {**x, **{'domain': (i + 1) % len(datasets)}}) for i, d in enumerate(datasets))
     # source_dataset = tf.data.experimental.sample_from_datasets(datasets[:-1]).batch(source_batch_size)
     # This is a dirty hack.
     # Reason 1: tf.data.experimental causes segmentation fault on multi GPU for tensorflow-gpu==2.0.0beta*.
