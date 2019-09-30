@@ -76,7 +76,7 @@ def concatenate(*args):
 def make_domain_dataset(paths, preprocessor):
     print(f'paths: {paths}')
     return tf.data.Dataset.from_tensor_slices(
-        paths
+        sorted(paths)
     ).interleave(
         tf.data.TFRecordDataset,
         cycle_length=N_PROCESSES,

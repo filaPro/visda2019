@@ -84,9 +84,9 @@ class SourceTestStep:
         for image in batch['image']:
             features = self.models['backbone'](image, training=False)
             predictions.append(self.models['top'](features, training=False))
-        predictions = tf.add_n(predictions) / len(batch)
+        predictions = tf.add_n(predictions) / len(predictions)
         self.metrics['acc'].update_state(batch['label'], predictions)
-        return batch['path'], tf.argmax(predictions, axis=1)
+        return batch['path'], predictions
 
     @staticmethod
     def _init_models(build_backbone_lambda, build_model_lambda):

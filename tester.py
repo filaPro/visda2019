@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 
 from utils import get_time_string
@@ -16,13 +17,16 @@ class Tester:
     def __call__(self, dataset):
         paths = []
         predictions = []
+        probabilities = []
         test_step = self.build_test_step_lambda()
         tf.train.Checkpoint(**test_step.models).restore(tf.train.latest_checkpoint(self.checkpoint_path))
         for batch in dataset:
             iteration = test_step.iteration.numpy()
-            path, prediction = test_step.test(batch)
+            path, probability = test_step.test(batch)
+            probability = probability.numpy()
             paths += path.numpy().tolist()
-            predictions += prediction.numpy().tolist()
+            predictions += np.argmax(probability, axis=1).tolist()
+            probabilities.append(probability)
             string = f'\riteration: {iteration + 1}'
             for name, metric in test_step.metrics.items():
                 string += f', {name}: {metric.result().numpy():.5e}'
@@ -30,4 +34,4 @@ class Tester:
         print()
         with open(self.log_path, 'a') as file:
             file.write(f'{get_time_string()} Tester: {string[1:]}\n')
-        return paths, predictions
+        return paths, predictions, np.concatenate(probabilities)

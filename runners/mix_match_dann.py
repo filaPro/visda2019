@@ -7,7 +7,7 @@ from utils import DOMAINS, N_CLASSES, make_combined_multi_source_dataset, get_ti
 from preprocessor import Preprocessor
 
 DATA_PATH = '/content/data'
-LOG_PATH = f'/content/logs/{get_time_string()}-mix-match'
+LOG_PATH = f'/content/logs/{get_time_string()}-mix-match-dann'
 LOCAL_BATCH_SIZE = 6
 N_GPUS = 1
 IMAGE_SIZE = 224
@@ -70,7 +70,7 @@ build_train_step_lambda = partial(
     n_domains=len(source_domains) + 1,
     learning_rate=.0001,
     loss_weight=333.,
-    domain_loss_weight=.1,
+    domain_loss_weight=.03,
     temperature=.5,
     alpha=.75,
     local_batch_size=LOCAL_BATCH_SIZE,

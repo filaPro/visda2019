@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tensorflow as tf
 from functools import partial
 
@@ -31,7 +32,9 @@ def build_top(n_classes):
 target_domain = DOMAINS[3]
 build_top_lambda = partial(build_top, n_classes=N_CLASSES)
 build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
-test_preprocessor = SelfEnsemblingPreprocessor((COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG))
+test_preprocessor = SelfEnsemblingPreprocessor(
+    (COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG)
+)
 
 test_paths = list_tfrecords(
     path=os.path.join(DATA_PATH, 'multi_source', 'tfrecords'),
@@ -47,7 +50,7 @@ build_test_step_lambda = partial(
     build_backbone_lambda=build_backbone_lambda,
     build_top_lambda=build_top_lambda
 )
-paths, predictions = Tester(
+paths, predictions, probabilities = Tester(
     build_test_step_lambda=build_test_step_lambda,
     log_path=LOG_PATH
 )(test_dataset)
@@ -55,3 +58,5 @@ paths, predictions = Tester(
 with open(os.path.join(LOG_PATH, 'result.txt'), 'w') as file:
     for path, prediction in zip(paths, predictions):
         file.write(f'{path.decode()} {prediction}\n')
+
+np.save(os.path.join(LOG_PATH, 'probability'), probabilities)

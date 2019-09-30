@@ -46,8 +46,8 @@ class MixMatchDannTrainStep:
             source_loss = self.losses['source'](mixed_source_labels, source_predictions)
             first_target_loss = self.losses['target'](mixed_first_target_labels, first_target_predictions)
             second_target_loss = self.losses['target'](mixed_second_target_labels, second_target_predictions)
-            target_loss = (first_target_loss + second_target_loss) * .5
-            domain_loss = self.losses['domain'](mixed_domains, domain_predictions)
+            target_loss = (first_target_loss + second_target_loss) / 2.
+            domain_loss = self.losses['domain'](mixed_domains, domain_predictions) / 3.
             loss = (source_loss + target_loss * self.loss_weight + domain_loss * self.domain_loss_weight)
             loss /= self.global_batch_size
 
