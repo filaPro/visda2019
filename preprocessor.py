@@ -76,10 +76,6 @@ class Preprocessor:
                 radians = item['angle'] / 180. * np.pi
                 angle = tf.random.uniform([], -radians, radians)
                 image = tfa.image.rotate(image, angle)
-            elif item['method'] == 'random_mean_filter':
-                if tf.random.uniform([]) > .5:
-                    size = item['size']
-                    image = tfa.image.mean_filter2d(image, filter_shape=(size, size))
             elif item['method'] == 'reshape':
                 image = tf.reshape(image, (item['height'], item['width'], item['n_channels']))
             else:

@@ -1,62 +1,56 @@
 import os
 import numpy as np
-import tensorflow as tf
 from functools import partial
+from argparse import ArgumentParser
 
 from tester import Tester
-from models import SourceTestStep, SelfEnsemblingPreprocessor, build_backbone
-from utils import DOMAINS, N_CLASSES, make_domain_dataset, list_tfrecords
-
-DATA_PATH = '/content/data'
-LOG_PATH = '/content/logs/tmp-source'
-BATCH_SIZE = 128
-IMAGE_SIZE = 224
-N_PROCESSES = 16
-BACKBONE_NAME = 'efficient_net_b5'
-COMPLEX_CONFIG = [
-    {'method': 'resize', 'height': 256, 'width': 256},
-    {'method': 'random_flip_left_right'},
-    {'method': 'keras', 'mode': 'torch'},
-    {'method': 'random_crop', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
-]
-
-
-def build_top(n_classes):
-    return tf.keras.Sequential([
-        tf.keras.layers.GlobalAveragePooling2D(input_shape=(7, 7, 2048)),
-        tf.keras.layers.Dropout(.5),
-        tf.keras.layers.Dense(n_classes, activation='softmax')
-    ])
-
-
-target_domain = DOMAINS[3]
-build_top_lambda = partial(build_top, n_classes=N_CLASSES)
-build_backbone_lambda = partial(build_backbone, name=BACKBONE_NAME, size=IMAGE_SIZE)
-test_preprocessor = SelfEnsemblingPreprocessor(
-    (COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG, COMPLEX_CONFIG)
+from models import (
+    SourceTestStep, SelfEnsemblingPreprocessor, build_backbone, get_backbone_normalization, get_n_backbone_channels,
+    build_top
 )
+from utils import DOMAINS, IMAGE_SIZE, N_CLASSES, make_domain_dataset, list_tfrecords, get_preprocessor_config
 
-test_paths = list_tfrecords(
-    path=os.path.join(DATA_PATH, 'multi_source', 'tfrecords'),
-    domain=target_domain,
-    phase='test'
-)
-test_dataset = make_domain_dataset(
-    paths=test_paths,
-    preprocessor=test_preprocessor
-).batch(BATCH_SIZE)
-build_test_step_lambda = partial(
-    SourceTestStep,
-    build_backbone_lambda=build_backbone_lambda,
-    build_top_lambda=build_top_lambda
-)
-paths, predictions, probabilities = Tester(
-    build_test_step_lambda=build_test_step_lambda,
-    log_path=LOG_PATH
-)(test_dataset)
 
-with open(os.path.join(LOG_PATH, 'result.txt'), 'w') as file:
-    for path, prediction in zip(paths, predictions):
-        file.write(f'{path.decode()} {prediction}\n')
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('--in-path', type=str, default='/content/data')
+    parser.add_argument('--log-path', type=str, required=True)
+    parser.add_argument('--domain', type=str, default=3)
+    parser.add_argument('--batch-size', type=int, default=128)
+    parser.add_argument('--backbone', type=str, default='efficient_net_b5')
+    parser.add_argument('--n-augmentations', type=int, default=7)
+    parser.add_argument('--phase', type=str, required=True, help='all, train, test, labeled, unlabeled')
+    parser.add_argument('--track', type=int, required=True, help='0: multi-source, 1: semi-supervised')
+    options = vars(parser.parse_args())
 
-np.save(os.path.join(LOG_PATH, 'probability'), probabilities)
+    backbone_name = options['backbone']
+    normalization = get_backbone_normalization(backbone_name)
+    n_channels = get_n_backbone_channels(backbone_name)
+    build_top_lambda = partial(build_top, n_channels=n_channels, n_classes=N_CLASSES)
+    build_backbone_lambda = partial(build_backbone, name=backbone_name, size=IMAGE_SIZE)
+    log_path = options['log_path']
+    track = 'semi_supervised' if options['track'] else 'multi_source'
+    preprocessor = SelfEnsemblingPreprocessor((get_preprocessor_config(normalization),) * options['n_augmentations'])
+    paths = list_tfrecords(
+        path=os.path.join(options['in_path'], track, 'tfrecords'),
+        domain=DOMAINS[options['domain']],
+        phase=options['phase']
+    )
+    dataset = make_domain_dataset(
+        paths=paths,
+        preprocessor=preprocessor
+    ).batch(options['batch_size'])
+    build_test_step_lambda = partial(
+        SourceTestStep,
+        build_backbone_lambda=build_backbone_lambda,
+        build_top_lambda=build_top_lambda
+    )
+    paths, predictions, probabilities = Tester(
+        build_test_step_lambda=build_test_step_lambda,
+        log_path=log_path
+    )(dataset)
+
+    with open(os.path.join(log_path, 'result.txt'), 'w') as file:
+        for path, prediction in zip(paths, predictions):
+            file.write(f'{path.decode()} {prediction}\n')
+    np.save(os.path.join(log_path, 'probability'), probabilities)

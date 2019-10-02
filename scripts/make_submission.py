@@ -2,15 +2,12 @@ import os
 import numpy as np
 from argparse import ArgumentParser
 
+from utils import get_track_information
+
 
 def run_domain(in_path, domain_path, track, domain):
-    if track == 0:
-        track_name = 'multi_source'
-        phase = 'test'
-    else:
-        track_name = 'semi_supervised'
-        phase = 'unl'
-    test_path = os.path.join(in_path, track_name, 'raw', f'{domain}_{phase}.txt')
+    phases, _, name = get_track_information(track)
+    test_path = os.path.join(in_path, name, 'raw', f'{domain}_{phases[1]}.txt')
     with open(test_path) as file:
         true_paths = np.array(tuple(map(lambda x: x.split()[0].split('/')[-1], file.readlines())))
     with open(os.path.join(domain_path, 'result.txt')) as file:
@@ -35,8 +32,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--in-path', type=str, default='/content/data')
     parser.add_argument('--out-path', type=str, default='/content/logs/tmp')
-    parser.add_argument('--clipart-path', type=str, default='/content/logs/tmp-mix-match-clipart')
-    parser.add_argument('--painting-path', type=str, default='/content/logs/tmp-mix-match-painting')
+    parser.add_argument('--clipart-path', type=str, required=True)
+    parser.add_argument('--painting-path', type=str, required=True)
     parser.add_argument('--track', type=int, required=True, help='0: multi source, 1: semi supervised')
     options = vars(parser.parse_args())
     run(

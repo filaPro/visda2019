@@ -10,29 +10,9 @@ DOMAINS = ('real', 'infograph', 'quickdraw', 'sketch', 'clipart', 'painting')
 N_CLASSES = 345
 BUFFER_SIZE = 128
 N_PROCESSES = 16
-
-
-def download_raw_data(path, domains):
-    base_url = 'http://csr.bu.edu/ftp/visda/2019/multi-source/'
-
-    if os.path.exists(path):
-        print(
-            'Raw data path already exists. '
-            'Be careful with downloading twice. '
-            'If necessary remove it and retry downloading.'
-        )
-        return
-
-    os.makedirs(path)
-    for domain in domains:
-        urls = (
-            f'{base_url}{domain}.zip',
-            f'{base_url}txt/{domain}_train.txt',
-            f'{base_url}txt/{domain}_test.txt'
-        )
-        for url in urls:
-            print(f'downloading: {url}')
-            os.system(f'wget -P {path} {url}')
+IMAGE_SIZE = 224
+N_TRAIN_ITERATIONS = 1000
+LEARNING_RATE = .0001
 
 
 @tf.function
@@ -140,8 +120,6 @@ def make_combined_multi_source_dataset(
         target_domain, target_phase, target_preprocessor,
         path
     )
-    # TODO: only for mix_match_dann
-    datasets = tuple(d.map(lambda x: {**x, **{'domain': (i + 1) % len(datasets)}}) for i, d in enumerate(datasets))
     # source_dataset = tf.data.experimental.sample_from_datasets(datasets[:-1]).batch(source_batch_size)
     # This is a dirty hack.
     # Reason 1: tf.data.experimental causes segmentation fault on multi GPU for tensorflow-gpu==2.0.0beta*.
@@ -242,3 +220,19 @@ def get_time_string():
 def copy_runner(file, path):
     os.makedirs(path, exist_ok=True)
     shutil.copy(os.path.realpath(file), path)
+
+
+def get_preprocessor_config(normalization):
+    return [
+        {'method': 'resize', 'height': 256, 'width': 256},
+        {'method': 'random_flip_left_right'},
+        {'method': 'keras', 'mode': normalization},
+        {'method': 'random_crop', 'height': IMAGE_SIZE, 'width': IMAGE_SIZE, 'n_channels': 3}
+    ]
+
+
+def get_track_information(track):
+    phases = ('train', 'test') if track == 0 else ('labeled', 'unlabeled')
+    domains = DOMAINS if track == 0 else DOMAINS[3:]
+    name = 'multi_source' if track == 0 else 'semi_supervised'
+    return phases, domains, name

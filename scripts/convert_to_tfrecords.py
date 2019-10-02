@@ -3,7 +3,7 @@ import random
 import tensorflow as tf
 from argparse import ArgumentParser
 
-from utils import DOMAINS
+from utils import get_track_information
 
 
 class Writer:
@@ -47,8 +47,6 @@ def path_and_label_to_string(in_path, path, label):
 
 def read_domain_paths_and_labels(path, domain, phase):
     print('>', domain, phase)
-    if phase == 'unlabeled':
-        phase = 'unl'
     with open(os.path.join(path, f'{domain}_{phase}.txt')) as file:
         paths_and_labels = list(map(lambda s: s.split(), file.readlines()))
     random.shuffle(paths_and_labels)
@@ -61,23 +59,16 @@ def read_domain_paths_and_labels(path, domain, phase):
     else:
         paths, labels = zip(*paths_and_labels)
 
-    # Semisupervised part still has missing domain name in path.
+    # Semi-supervised part still has missing domain name in path.
     paths = list(map(lambda s: os.path.join(path, s if '/' in s else f'{domain}/{s}'), paths))
     labels = list(map(int, labels))
     return paths, labels
 
 
 def run(path, size, track):
-    if track == 0:
-        phases = ('train', 'test')
-        domains = DOMAINS
-        path = os.path.join(path, 'multi_source')
-    else:
-        phases = ('labeled', 'unlabeled')
-        domains = DOMAINS[3:]
-        path = os.path.join(path, 'semi_supervised')
-    in_path = os.path.join(path, 'raw')
-    out_path = os.path.join(path, 'tfrecords')
+    phases, domains, name = get_track_information(track)
+    in_path = os.path.join(path, name, 'raw')
+    out_path = os.path.join(path, name, 'tfrecords')
     assert os.path.exists(in_path)
     assert not os.path.exists(out_path)
     os.mkdir(out_path)
@@ -93,8 +84,9 @@ def run(path, size, track):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--path', type=str, required=True)
-    parser.add_argument('--track', type=int, required=True, help='0: multi source, 1: semi supervised')
+    parser.add_argument('--path', type=str, default='/content/data')
     parser.add_argument('--size', type=int, default=15000)
     options = vars(parser.parse_args())
-    run(path=options['path'], size=options['size'], track=options['track'])
+
+    for i in (0, 1):
+        run(path=options['path'], size=options['size'], track=i)
