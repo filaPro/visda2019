@@ -35,5 +35,13 @@
 * `--in-path` - path to data
 * `--out-path` - path to load and save predictions
 * `--in-names` - comma-separated names of experiments
-* `--out-name` - name of output directory
+* `--out-name` - current experiment name
 * `--weights` - comma-separated weights for probabilities
+
+`make_submission.py`
+* `--in-path` - path to data
+* `--out-path` - path to load and save predictions
+* `--clipart-name` - clipart experiment name
+* `--painting-name` - painting experiment name
+* `--out-name` - current experiment name
+* `--track` - `0`: multi source, `1`: semi supervised

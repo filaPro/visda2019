@@ -63,11 +63,11 @@ python runners/mix_match_semi_supervised.py --target-domain 4 --n-gpus 8 \
 python runners/mix_match_semi_supervised.py --target-domain 4 --n-gpus 8 \
     --batch-size 15 --loss-weight 333. --backbone efficient_net_b6 --name ss-clipart-333-b6
 
-python runners/predict.py --name ss-clipart-333-b5 --domain 4 --phase labeled --track 1 \
+python runners/predict.py --name ss-clipart-333-b5 --domain 4 --phase unlabeled --track 1 \
     --backbone efficient_net_b5
-python runners/predict.py --name ss-clipart-1000-b5 --domain 4 --phase labeled --track 1 \
+python runners/predict.py --name ss-clipart-1000-b5 --domain 4 --phase unlabeled --track 1 \
     --backbone efficient_net_b5
-python runners/predict.py --name ss-clipart-333-b6 --domain 4 --phase labeled --track 1 \
+python runners/predict.py --name ss-clipart-333-b6 --domain 4 --phase unlabeled --track 1 \
     --backbone efficient_net_b6
 
 python scripts/ensemble.py --in-names ss-clipart-333-b5,ss-clipart-1000-b5,ss-clipart-333-b6 \

@@ -11,6 +11,7 @@ and EfficientNet ([arxiv](https://arxiv.org/abs/1905.11946), [github](https://gi
 
 Just clone this repo and install `requirements.txt` throw `pip`.
 The code was tested on `ubuntu 16.04` with `python 3.6`, `cuda 10.0`, `cudnn 7.5`.
+You may also need `wget` and `unzip` packages to download data.
 
 #### Data preparation 
 
@@ -25,10 +26,10 @@ The resulting structure of data directory is shown in [docs/structure.md](docs/s
 ```
 python runners/source_semi_supervised.py
 ```
-The growth of accuracy on `sketch` domain will be displayed at `stdout` and in log file.
+The growth of accuracy on sketch domain will be displayed at `stdout` and in log file.
 The arguments of all scripts are listed in [docs/arguments.md](docs/arguments.md).
 
 #### Achieving leaderboard accuracy
 
-Follow the instructions in [docs/solution.md](docs/solution.md)
+Follow the instructions in [docs/solution.md](docs/solution.md).
 
