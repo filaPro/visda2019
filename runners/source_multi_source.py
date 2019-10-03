@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--in-path', type=str, default='/content/data')
     parser.add_argument('--out-path', type=str, default='/content/logs')
     parser.add_argument('--name', type=str, default='tmp')
+    parser.add_argument('--time', type=int, default=0)
     parser.add_argument('--n-gpus', type=int, default=1)
     parser.add_argument('--batch-size', type=int, default=6)
     parser.add_argument('--n-epochs', type=int, default=100)
@@ -34,8 +35,9 @@ if __name__ == '__main__':
     build_backbone_lambda = partial(build_backbone, name=backbone_name, size=IMAGE_SIZE)
     preprocessor = Preprocessor(get_preprocessor_config(normalization))
     out_path = options['out_path']
+    time = f'{get_time_string()}-' if options['time'] else ''
     name = options['name']
-    log_path = os.path.join(out_path, f'{get_time_string()}-{name}')
+    log_path = os.path.join(out_path, f'{time}{name}')
     batch_size = options['batch_size']
     n_gpus = options['n_gpus']
 

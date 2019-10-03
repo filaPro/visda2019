@@ -14,7 +14,8 @@ from utils import DOMAINS, IMAGE_SIZE, N_CLASSES, make_domain_dataset, list_tfre
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--in-path', type=str, default='/content/data')
-    parser.add_argument('--log-path', type=str, required=True)
+    parser.add_argument('--out-path', type=str, default='/content/logs')
+    parser.add_argument('--name', type=str, required=True)
     parser.add_argument('--domain', type=str, default=3)
     parser.add_argument('--batch-size', type=int, default=128)
     parser.add_argument('--backbone', type=str, default='efficient_net_b5')
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     n_channels = get_n_backbone_channels(backbone_name)
     build_top_lambda = partial(build_top, n_channels=n_channels, n_classes=N_CLASSES)
     build_backbone_lambda = partial(build_backbone, name=backbone_name, size=IMAGE_SIZE)
-    log_path = options['log_path']
+    log_path = os.path.join(options['out_path'], options['name'])
     track = 'semi_supervised' if options['track'] else 'multi_source'
     preprocessor = SelfEnsemblingPreprocessor((get_preprocessor_config(normalization),) * options['n_augmentations'])
     paths = list_tfrecords(

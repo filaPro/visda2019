@@ -44,4 +44,4 @@
 * `--clipart-name` - clipart experiment name
 * `--painting-name` - painting experiment name
 * `--out-name` - current experiment name
-* `--track` - `0`: multi source, `1`: semi supervised
+* `--track` - `0`: multi-source, `1`: semi-supervised
