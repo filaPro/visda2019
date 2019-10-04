@@ -32,7 +32,6 @@
 * `--path` - path to data
 
 `ensemble.py`
-* `--in-path` - path to data
 * `--out-path` - path to load and save predictions
 * `--in-names` - comma-separated names of experiments
 * `--out-name` - current experiment name
