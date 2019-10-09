@@ -9,7 +9,7 @@ and EfficientNet ([arxiv](https://arxiv.org/abs/1905.11946), [github](https://gi
 
 #### Installation
 
-Just clone this repo and install `requirements.txt` throw `pip`.
+Just clone this repo, update `PYTHONPATH` and install `requirements.txt` throw `pip`.
 The code was tested on `ubuntu 16.04` with `python 3.6`, `cuda 10.0`, `cudnn 7.5`.
 You may also need `wget` and `unzip` packages to download data.
 
