@@ -5,7 +5,9 @@ Our team got **2nd** place on final leaderboard of
 and **3rd** place of [semi-supervised](https://competitions.codalab.org/competitions/20257#results) (with accuracy: .713).
 This solution heavily borrows ideas from 
 MixMatch ([arxiv](https://arxiv.org/abs/1905.02249), [github](https://github.com/google-research/mixmatch)) 
-and EfficientNet ([arxiv](https://arxiv.org/abs/1905.11946), [github](https://github.com/qubvel/efficientnet)).
+and EfficientNet ([arxiv](https://arxiv.org/abs/1905.11946), [github](https://github.com/qubvel/efficientnet)). 
+
+The technical report is published on [arxiv](https://arxiv.org/abs/1910.03903).
 
 #### Installation
 
