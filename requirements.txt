@@ -1,4 +1,4 @@
-tensorflow-gpu==2.0.0-beta1
+tensorflow-gpu==2.4.0
 efficientnet==1.0.0b3
 tensorflow-addons==0.5.0
 tensorflow-probability==0.7.0
